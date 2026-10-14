@@ -55,10 +55,21 @@ pub fn section(content: Format) -> TagFormat {
 }
 
 /// Build the legacy format shape after request policy has been resolved.
-pub fn build(tools: &[Tool<'_>], auto: bool, named: bool, stop_after_first: bool) -> StructuralTag {
+/// Returns an error when named mode has no selected tool.
+pub fn build(
+    tools: &[Tool<'_>],
+    auto: bool,
+    named: bool,
+    stop_after_first: bool,
+) -> anyhow::Result<StructuralTag> {
     let calls: Vec<_> = tools.iter().map(call_tag).collect();
     let calls_format = if named {
-        Format::Tag(calls.into_iter().next().expect("selected named tool"))
+        Format::Tag(
+            calls
+                .into_iter()
+                .next()
+                .ok_or_else(|| anyhow::anyhow!("named tool choice has no selected tool"))?,
+        )
     } else {
         Format::TagsWithSeparator(TagsWithSeparatorFormat {
             tags: calls,
@@ -87,5 +98,20 @@ pub fn build(tools: &[Tool<'_>], auto: bool, named: bool, stop_after_first: bool
             ],
         })
     };
-    StructuralTag { format }
+    Ok(StructuralTag { format })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn named_choice_without_selected_tool_returns_error() {
+        for auto in [false, true] {
+            for stop_after_first in [false, true] {
+                let error = build(&[], auto, true, stop_after_first).unwrap_err();
+                assert_eq!(error.to_string(), "named tool choice has no selected tool");
+            }
+        }
+    }
 }

@@ -35,7 +35,7 @@ pub(crate) fn build_kimi_k2(
         matches!(ctx.tool_choice, ToolChoice::Auto),
         matches!(ctx.tool_choice, ToolChoice::Named(_)),
         ctx.stop_after_first(),
-    )))
+    )?))
 }
 
 #[cfg(test)]
