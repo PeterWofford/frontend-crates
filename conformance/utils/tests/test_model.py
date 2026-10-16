@@ -1461,9 +1461,13 @@ def test_gpt_oss_has_a_visible_featured_row():
 
 def test_gpt_oss_uncaptured_peer_batch_results_are_missing_not_unsupported(model_v2):
     tab = _tab(model_v2, "tab-unified")
-    row = next(row for row in tab["rows"] if row.get("family") == "gpt_oss")
+    rows = tab["rows"]
+    row_index = next(index for index, row in enumerate(rows) if row.get("family") == "gpt_oss")
+    row = rows[row_index]
     assert row["model_label"] == "GPT-OSS"
-    assert row["section"] == "Top-N models"
+    assert row["section"] is None
+    previous_section = next(row["section"] for row in reversed(rows[:row_index]) if row["section"])
+    assert previous_section == "Top-N models"
     keys = {"vllm_python_batch@" + version for version in ("0.23.0", "0.24.0", "0.25.1", "0.26.0")}
     keys.add("sglang_python_batch@0.5.14")
     cases = [cell for cell in leaf_cells(row).values() if cell["status"] != "na"]

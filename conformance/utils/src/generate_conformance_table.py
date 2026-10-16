@@ -199,6 +199,7 @@ from fixtures import (  # noqa: E402,F401
 # Row-label / visibility overrides keyed by tool calling family; ‡ is explained
 # by the legend note in conformance_table.html.j2.
 _TOOL_CALLING_LABEL_OVERRIDES = {
+    "gpt_oss": "GPT-OSS",
     "qwen3_coder": "Qwen 3 Coder / Nemotron V3‡",
 }
 # nemotron_nano: an alias for qwen3_coder, hide to avoid duplicate row
@@ -2964,10 +2965,30 @@ def _unified_tab_model(artifact_root: Path, hrefs: dict) -> dict | None:
         rows.append({"family": f, "model_label": f, "model_label_html": f, "section": None,
                      "parser": None, "cells": cells})
 
+    # Unified rows are built from a different corpus loader than the legacy tables,
+    # so apply the shared featured order and label mapping after constructing cells.
+    display_families = {(family, ""): {} for family in families}
+    top_n, others = _build_display_groups(display_families, {})
+    rows_by_family = {row["family"]: row for row in rows}
+    display_rows = []
+    for section, group in (("Top-N models", top_n), ("Others", others)):
+        if not group:
+            continue
+        display_rows.append({"family": None, "model_label": section,
+                             "model_label_html": "", "section": section,
+                             "parser": None, "cells": {}})
+        for label, family in group:
+            row = rows_by_family[family]
+            row["model_label"] = label
+            row["model_label_html"] = _model_label_html(label)
+            display_rows.append(row)
+    rows = display_rows
+
     for column in columns:
         # Include reconstructed missing captures; their native prefills can differ.
         configs = [row["cells"][column["sub"]]["tooltip"]["init"] for row in rows
-                   if row["cells"][column["sub"]]["status"] != "na"]
+                   if row["family"] is not None
+                   and row["cells"][column["sub"]]["status"] != "na"]
         if configs and all(config == configs[0] for config in configs):
             column["init"] = configs[0]
 
