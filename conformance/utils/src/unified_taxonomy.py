@@ -170,6 +170,7 @@ UNIFIED_TAX = {
     "muse_glimmer_guided_message_end_inside_native_header": ("muse", "5"),
     "deepseek_v4_guided_reasoning_opener_inside_native_body": ("deepseek_v4", "1"),
     "gemma4_guided_reasoning_opener_after_call_prefix": ("gemma", "3"),
+    "gemma4_guided_response_extra_body_opener": ("gemma", "4"),
     "guided_json_reasoning_markers_inside_native_parameter": (34, "11"),
     "gemma4_guided_json_visible_call_prose_before_reasoning": ("gemma", "1"),
     "gemma4_guided_json_malformed_call_prefix_before_reasoning": ("gemma", "2"),
