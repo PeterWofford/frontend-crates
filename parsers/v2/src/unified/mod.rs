@@ -1219,7 +1219,9 @@ impl<N: NativeUnified + Send> UnifiedParser for GuidedRouted<N> {
                         UnifiedParserEvent::ToolCall(c) => out.push_call(c),
                     }
                 }
-                self.native.restore_guided_token_literals(&mut out);
+                if self.guided_token_input {
+                    self.native.restore_guided_token_literals(&mut out);
+                }
             }
         }
         Ok(out)
@@ -5551,10 +5553,6 @@ impl GuidedState {
                     "guided output contained no JSON payload, only control markup; \
                      emitting nothing (is the backend's guided decoding actually on?)"
                 );
-                if self.grammar.native_body_start.is_some() {
-                    self.json.clear();
-                    return Ok(Vec::new());
-                }
             }
             if self.invalid_payload == InvalidGuidedPayloadPolicy::Reject {
                 return Err(InvalidGuidedPayload {
@@ -6176,6 +6174,63 @@ impl UnifiedParser for DebugUnifiedParser {
 mod tests {
     use super::*;
     use std::cell::Cell;
+
+    // Corpus requests carry decoded text; capability admission and wrapper
+    // forwarding require calls to the token-ID API itself.
+    #[test]
+    fn token_capabilities_and_rejection_match_through_debug_wrapper() {
+        let ids = harmony::encode_harmony("hello").unwrap();
+        for family in builtin_unified_families() {
+            let supports_tokens = matches!(*family, "gpt_oss" | "harmony");
+            let mut reference = create_unified_parser_for_family(family, &[]).unwrap();
+            reference.initialize(&[]).unwrap();
+            let expected = reference.parse_complete("hello").unwrap();
+            for wrapped in [false, true] {
+                let inner = create_unified_parser_for_family(family, &[]).unwrap();
+                let mut parser: Box<dyn UnifiedParser> = if wrapped {
+                    Box::new(DebugUnifiedParser {
+                        family: family.to_string(),
+                        inner,
+                    })
+                } else {
+                    inner
+                };
+                assert_eq!(
+                    parser.input_capabilities(),
+                    UnifiedParserInputCapabilities {
+                        text: true,
+                        token_ids: supports_tokens,
+                    },
+                    "{family} wrapped={wrapped}"
+                );
+                assert_eq!(
+                    parser.preserve_special_tokens(),
+                    reference.preserve_special_tokens()
+                );
+                parser.initialize(&[]).unwrap();
+                let mut out = UnifiedParserOutput::default();
+                let result = parser.parse_token_ids_into(&ids, &mut out);
+                if supports_tokens {
+                    result.unwrap();
+                } else {
+                    assert!(
+                        result
+                            .unwrap_err()
+                            .to_string()
+                            .contains("does not support token-id ingestion")
+                    );
+                    assert!(out.events.is_empty());
+                    parser.initialize(&[]).unwrap();
+                    parser.parse_into("hello", &mut out).unwrap();
+                }
+                out.append(&mut parser.finish().unwrap());
+                assert_eq!(out.assembled(), expected, "{family} wrapped={wrapped}");
+                parser.reset();
+                parser.initialize(&[]).unwrap();
+                assert_eq!(parser.parse_complete("hello").unwrap(), expected);
+            }
+        }
+    }
 
     #[test]
     fn guided_native_body_cursor_waits_for_marker_holdback() {

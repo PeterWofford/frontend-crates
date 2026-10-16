@@ -36,14 +36,16 @@ const CONTROL_MARKERS: &[&str] = &[
 ];
 const GUIDED_LITERAL_ESCAPE: char = '\u{e000}';
 
+// Distinct suffixes keep adjacent '<' and literal escape characters reversible.
 fn shield_guided_literals(text: &str) -> String {
     let mut shielded = String::with_capacity(text.len());
     for ch in text.chars() {
         if ch == GUIDED_LITERAL_ESCAPE {
             shielded.push(GUIDED_LITERAL_ESCAPE);
-            shielded.push(GUIDED_LITERAL_ESCAPE);
+            shielded.push('e');
         } else if ch == '<' {
             shielded.push(GUIDED_LITERAL_ESCAPE);
+            shielded.push('l');
         } else {
             shielded.push(ch);
         }
@@ -56,11 +58,16 @@ fn restore_guided_literals(text: &str) -> String {
     let mut chars = text.chars().peekable();
     while let Some(ch) = chars.next() {
         if ch == GUIDED_LITERAL_ESCAPE {
-            if chars.peek() == Some(&GUIDED_LITERAL_ESCAPE) {
-                chars.next();
-                restored.push(GUIDED_LITERAL_ESCAPE);
-            } else {
-                restored.push('<');
+            match chars.peek() {
+                Some('e') => {
+                    chars.next();
+                    restored.push(GUIDED_LITERAL_ESCAPE);
+                }
+                Some('l') => {
+                    chars.next();
+                    restored.push('<');
+                }
+                _ => restored.push(ch),
             }
         } else {
             restored.push(ch);
@@ -1116,6 +1123,7 @@ mod tests {
                 tool_output_mode: crate::unified::UnifiedToolOutputMode::GuidedJson {
                     named_tool: None,
                 },
+                invalid_guided_payload: super::super::InvalidGuidedPayloadPolicy::RecoverAsText,
                 ..UnifiedParserInit::default()
             })
             .unwrap();
@@ -1133,37 +1141,124 @@ mod tests {
     }
 
     #[test]
-    fn guided_token_ids_preserve_literal_private_use_escape_character() {
+    fn guided_literal_shielding_is_reversible_for_adjacent_escape_characters() {
+        let alphabet = ['<', GUIDED_LITERAL_ESCAPE, 'e', 'l'];
+        for length in 0..=4 {
+            for mut pattern in 0..4usize.pow(length) {
+                let input: String = (0..length)
+                    .map(|_| {
+                        let ch = alphabet[pattern % 4];
+                        pattern /= 4;
+                        ch
+                    })
+                    .collect();
+                assert_eq!(
+                    restore_guided_literals(&shield_guided_literals(&input)),
+                    input
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn guided_recovery_preserves_private_use_characters_for_text_and_tokens() {
         let input = format!(
-            r#"[{{"name":"lookup","arguments":{{"value":"{}"}}}}]"#,
+            r#"[{{"name":"lookup","arguments":{{"value":"<{}"#,
             GUIDED_LITERAL_ESCAPE
         );
         let encoding = harmony_encoding().unwrap();
         let ids = encoding.tokenizer().encode_ordinary(&input);
-        let mut parser = gpt_oss_unified(&[]);
-        parser
-            .initialize_request(UnifiedParserInit {
-                starting_state: UnifiedParserStartingState::Response,
-                tool_output_mode: crate::unified::UnifiedToolOutputMode::GuidedJson {
-                    named_tool: None,
-                },
-                ..UnifiedParserInit::default()
-            })
-            .unwrap();
-
-        let mut events = Vec::new();
-        for chunk in ids.chunks(1) {
-            events.extend(parser.push_tokens(chunk).unwrap());
+        for tokens in [false, true] {
+            let mut parser = gpt_oss_unified(&[]);
+            let length = if tokens { ids.len() } else { input.len() };
+            for at in 0..=length {
+                if !tokens && !input.is_char_boundary(at) {
+                    continue;
+                }
+                parser.reset();
+                parser
+                    .initialize_request(UnifiedParserInit {
+                        tool_output_mode: crate::unified::UnifiedToolOutputMode::GuidedJson {
+                            named_tool: None,
+                        },
+                        invalid_guided_payload:
+                            super::super::InvalidGuidedPayloadPolicy::RecoverAsText,
+                        ..Default::default()
+                    })
+                    .unwrap();
+                let mut events = Vec::new();
+                if tokens {
+                    events.extend(parser.push_tokens(&ids[..at]).unwrap());
+                    events.extend(parser.push_tokens(&ids[at..]).unwrap());
+                } else {
+                    events.extend(parser.push(&input[..at]).unwrap());
+                    events.extend(parser.push(&input[at..]).unwrap());
+                }
+                events.extend(parser.finish().unwrap().events);
+                assert_eq!(
+                    crate::unified::assemble(&events),
+                    vec![UnifiedEvent::Text {
+                        text: input.clone()
+                    }],
+                    "tokens={tokens} split={at}"
+                );
+            }
         }
-        events.extend(parser.finish().unwrap().events);
+    }
 
-        let assembled = crate::unified::assemble(&events);
-        let expected = GUIDED_LITERAL_ESCAPE.to_string();
-        assert!(matches!(
-            assembled.as_slice(),
-            [crate::unified::UnifiedEvent::ToolCall { arguments, .. }]
-                if arguments["value"].as_str() == Some(expected.as_str())
-        ));
+    #[test]
+    fn guided_token_ids_preserve_literal_private_use_escape_character() {
+        for value in [
+            format!("<{GUIDED_LITERAL_ESCAPE}"),
+            format!("{GUIDED_LITERAL_ESCAPE}<"),
+            format!("{GUIDED_LITERAL_ESCAPE}{GUIDED_LITERAL_ESCAPE}<<"),
+        ] {
+            let input = format!(r#"[{{"name":"lookup","arguments":{{"value":"{value}"}}}}]"#);
+            let ids = harmony_encoding()
+                .unwrap()
+                .tokenizer()
+                .encode_ordinary(&input);
+            for policy in [
+                super::super::InvalidGuidedPayloadPolicy::Reject,
+                super::super::InvalidGuidedPayloadPolicy::RecoverAsText,
+                super::super::InvalidGuidedPayloadPolicy::StreamBestEffort,
+            ] {
+                for tokens in [false, true] {
+                    let mut parser = gpt_oss_unified(&[]);
+                    parser
+                        .initialize_request(UnifiedParserInit {
+                            starting_state: UnifiedParserStartingState::Response,
+                            tool_output_mode: crate::unified::UnifiedToolOutputMode::GuidedJson {
+                                named_tool: None,
+                            },
+                            invalid_guided_payload: policy,
+                            ..Default::default()
+                        })
+                        .unwrap();
+                    let mut events = Vec::new();
+                    if tokens {
+                        for chunk in ids.chunks(1) {
+                            events.extend(parser.push_tokens(chunk).unwrap());
+                        }
+                    } else {
+                        for chunk in every_char_chunk(&input) {
+                            events.extend(parser.push(chunk).unwrap());
+                        }
+                    }
+                    let expected = vec![UnifiedEvent::ToolCall {
+                        name: "lookup".into(),
+                        arguments: serde_json::json!({"value": value}),
+                    }];
+                    assert_eq!(
+                        crate::unified::assemble(&events),
+                        expected,
+                        "before finish tokens={tokens} policy={policy:?}"
+                    );
+                    events.extend(parser.finish().unwrap().events);
+                    assert_eq!(crate::unified::assemble(&events), expected);
+                }
+            }
+        }
     }
 
     #[test]
@@ -1628,10 +1723,42 @@ mod tests {
             r#"{"city": "Paris"}"#,
             "<|call|>"
         );
-        assert!(parse_guided(&[input], UnifiedParserStartingState::None).is_empty());
-
-        let chunks = every_char_chunk(input);
-        assert!(parse_guided(&chunks, UnifiedParserStartingState::None).is_empty());
+        for policy in [
+            super::super::InvalidGuidedPayloadPolicy::Reject,
+            super::super::InvalidGuidedPayloadPolicy::RecoverAsText,
+            super::super::InvalidGuidedPayloadPolicy::StreamBestEffort,
+        ] {
+            for named in [false, true] {
+                let mut schedules = vec![vec![input], every_char_chunk(input)];
+                schedules.extend(
+                    input
+                        .char_indices()
+                        .map(|(at, _)| vec![&input[..at], &input[at..]]),
+                );
+                let mut parser = gpt_oss_unified(&[]);
+                for chunks in schedules {
+                    parser.reset();
+                    parser
+                        .initialize_request(UnifiedParserInit {
+                            tool_output_mode: crate::unified::UnifiedToolOutputMode::GuidedJson {
+                                named_tool: named.then(|| "get_weather".into()),
+                            },
+                            invalid_guided_payload: policy,
+                            ..Default::default()
+                        })
+                        .unwrap();
+                    for chunk in chunks {
+                        assert!(parser.push(chunk).unwrap().is_empty());
+                    }
+                    let finish = parser.finish();
+                    if policy == super::super::InvalidGuidedPayloadPolicy::Reject {
+                        assert!(finish.unwrap_err().to_string().contains("Missing"));
+                    } else {
+                        assert!(finish.unwrap().events.is_empty());
+                    }
+                }
+            }
+        }
     }
 
     #[test]
