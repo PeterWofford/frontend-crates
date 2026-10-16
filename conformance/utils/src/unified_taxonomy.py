@@ -165,6 +165,7 @@ UNIFIED_TAX = {
     "guided_json_native_parameter_object_before_payload": (35, "6"),
     "guided_json_native_parameter_array_before_payload": (35, "7"),
     "guided_json_noncall_before_native_array_before_payload": (35, "8"),
+    "guided_json_native_parameter_string_before_payload": (35, "9"),
     "qwen3_guided_reasoning_opener_inside_native_header": ("qwen3", "3"),
     "muse_glimmer_guided_message_end_inside_native_header": ("muse", "5"),
     "deepseek_v4_guided_reasoning_opener_inside_native_body": ("deepseek_v4", "1"),

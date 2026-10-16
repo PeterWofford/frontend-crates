@@ -486,6 +486,7 @@ def test_gpt_oss_response_applicability_is_not_derived_from_the_denylist() -> No
         "guided_response_quoted_control_braces_named",
         "guided_json_native_parameter_object_before_payload",
         "guided_json_native_parameter_array_before_payload",
+        "guided_json_native_parameter_string_before_payload",
         "guided_json_noncall_before_native_array_before_payload",
     }
     cases = build_cases("gpt_oss")
@@ -510,6 +511,7 @@ def test_response_state_uses_only_control_marker_contracts() -> None:
         "guided_response_quoted_control_braces_required",
         "guided_json_native_parameter_object_before_payload",
         "guided_json_native_parameter_array_before_payload",
+        "guided_json_native_parameter_string_before_payload",
         "guided_json_noncall_before_native_array_before_payload",
     }
     for family in NATIVE_FAMILIES:
@@ -855,15 +857,15 @@ def test_unified_case_counts_match_the_generator():
     denominator survived in the prose before.
     """
     family_specific = {
-        "deepseek_v4": 129,
-        "deepseek_v41": 126,
-        "gemma4": 122,
-        "glm47": 120,
-        "gpt_oss": 118,
-        "kimi_k2": 120,
-        "kimi_k3": 127,
-        "muse_glimmer": 127,
-        "qwen3": 123,
+        "deepseek_v4": 130,
+        "deepseek_v41": 127,
+        "gemma4": 123,
+        "glm47": 121,
+        "gpt_oss": 119,
+        "kimi_k2": 121,
+        "kimi_k3": 128,
+        "muse_glimmer": 128,
+        "qwen3": 124,
     }
     assert set(family_specific) == set(FAMILIES)
     per_family = {fam: len(build_cases(fam)) for fam in FAMILIES}
@@ -876,7 +878,7 @@ def test_deferred_case_ids_are_not_in_the_active_taxonomy():
     deferred = {"1-2", "5-5", "6-2", "32-6", "50-1", "50-2"} | {
         f"31-{number}" for number in range(31, 41)
     }
-    assert len(UNIFIED_TAX) == 171 + len(CONFORMANCE_CASES)
+    assert len(UNIFIED_TAX) == 172 + len(CONFORMANCE_CASES)
     assert not {f"UNIFIED.{case_id}" for case_id in deferred} & {
         numbered_id(scenario) for scenario in UNIFIED_TAX
     }
@@ -1176,6 +1178,7 @@ def _family_value(scenario, family):
         "prefilled_response_reasoning_markers_literal",
         "guided_json_native_parameter_object_before_payload",
         "guided_json_native_parameter_array_before_payload",
+        "guided_json_native_parameter_string_before_payload",
     }:
         if scenario.startswith("guided_json_native_parameter_") and family not in {"qwen3", "muse_glimmer"}:
             return f"I mean {reason_open}self literal{reason_close}"
@@ -1660,6 +1663,12 @@ def _assert_cross_family_contract(corpus):
                         family, scenario, "wrong suppressed marker role or payload",
                     )
                     suppressed[0]["arguments"]["x"] = "FAMILY_REASONING_MARKERS"
+                if scenario == "guided_json_native_parameter_string_before_payload":
+                    for call in suppressed:
+                        value = call["arguments"]["x"]
+                        assert isinstance(value, str)
+                        if value.startswith('"'):
+                            call["arguments"]["x"] = json.loads(value)
                 if scenario in {
                     "guided_json_native_parameter_object_before_payload",
                     "guided_json_native_parameter_array_before_payload",

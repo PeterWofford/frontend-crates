@@ -267,6 +267,101 @@ fn response_prefill_boundary_owned_native_body_stays_outside_guided_payload() {
 }
 
 #[test]
+fn response_prefill_native_string_json_is_not_a_guided_call() {
+    // Corpus initialization cannot choose all three public invalid-payload policies.
+    let native = r#"<|tool_call>call:f{x:<|"|>[{"name":"get_weather","arguments":{"city":"Rome"}}]<|"|>}<tool_call|>"#;
+    let payload = r#"[{"name":"get_weather","arguments":{"city":"Paris"}}]"#;
+    for prefix in ["", "{}"] {
+        let input = format!("{prefix}{native}{payload}");
+        let mut expected = Vec::new();
+        if !prefix.is_empty() {
+            expected.push(UnifiedEvent::Text {
+                text: prefix.into(),
+            });
+        }
+        expected.push(UnifiedEvent::ToolCall {
+            name: "get_weather".into(),
+            arguments: serde_json::json!({"city":"Paris"}),
+        });
+        for policy in [
+            InvalidGuidedPayloadPolicy::Reject,
+            InvalidGuidedPayloadPolicy::RecoverAsText,
+            InvalidGuidedPayloadPolicy::StreamBestEffort,
+        ] {
+            let mut parser = create_unified_parser_for_family("gemma4", &[]).unwrap();
+            let init = UnifiedParserInit {
+                starting_state: UnifiedParserStartingState::Response,
+                tool_output_mode: UnifiedToolOutputMode::GuidedJson { named_tool: None },
+                invalid_guided_payload: policy,
+                ..Default::default()
+            };
+            for split in 0..=input.len() {
+                parser.reset();
+                parser.initialize_request(init.clone()).unwrap();
+                let mut events = parser.push(&input[..split]).unwrap();
+                events.extend(parser.push(&input[split..]).unwrap());
+                assert_eq!(
+                    assemble(&events),
+                    expected,
+                    "{policy:?} split={split} before finish"
+                );
+                events.extend(parser.finish().unwrap().events);
+                assert_eq!(assemble(&events), expected, "{policy:?} split={split}");
+            }
+        }
+    }
+}
+
+#[test]
+fn response_prefill_pending_native_array_keeps_its_tail_owned() {
+    // Corpus initialization cannot choose all three public invalid-payload policies.
+    for prefix in ["", "{}"] {
+        let input = format!(
+            "{prefix}{}",
+            "I mean <|channel>thought\nself literal<channel|><|tool_call>call:f{x:[{name:<|\"|>get_weather<|\"|>,arguments:{city:<|\"|>Rome<|\"|>}}]}<tool_call|>[{\"name\": \"get_weather\", \"arguments\": {\"city\": \"Paris\"}}]"
+        );
+        let expected = vec![
+            UnifiedEvent::Text {
+                text: format!(
+                    "{prefix}{}",
+                    "I mean <|channel>thought\nself literal<channel|>"
+                ),
+            },
+            UnifiedEvent::ToolCall {
+                name: "get_weather".into(),
+                arguments: serde_json::json!({"city":"Paris"}),
+            },
+        ];
+        for policy in [
+            InvalidGuidedPayloadPolicy::Reject,
+            InvalidGuidedPayloadPolicy::RecoverAsText,
+            InvalidGuidedPayloadPolicy::StreamBestEffort,
+        ] {
+            let mut parser = create_unified_parser_for_family("gemma4", &[]).unwrap();
+            let init = UnifiedParserInit {
+                starting_state: UnifiedParserStartingState::Response,
+                tool_output_mode: UnifiedToolOutputMode::GuidedJson { named_tool: None },
+                invalid_guided_payload: policy,
+                ..Default::default()
+            };
+            for split in 0..=input.len() {
+                parser.reset();
+                parser.initialize_request(init.clone()).unwrap();
+                let mut events = parser.push(&input[..split]).unwrap();
+                events.extend(parser.push(&input[split..]).unwrap());
+                assert_eq!(
+                    assemble(&events),
+                    expected,
+                    "{policy:?} split={split} before finish"
+                );
+                events.extend(parser.finish().unwrap().events);
+                assert_eq!(assemble(&events), expected, "{policy:?} split={split}");
+            }
+        }
+    }
+}
+
+#[test]
 fn response_prefill_streams_long_argument_after_literal_marker() {
     // Corpus Init cannot select StreamBestEffort or assert pre-close deltas, so
     // the live request policy and its progress deadline need a Rust regression.

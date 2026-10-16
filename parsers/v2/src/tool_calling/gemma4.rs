@@ -257,6 +257,14 @@ impl InvokeBoundary for Gemma4InvokeBoundary {
         opens_bare_call(text, at, &self.opener_header)
     }
 
+    fn guided_native_body_start(&self, text: &str, at: usize) -> Option<usize> {
+        self.opens(text, at).then(|| {
+            at + text[at..]
+                .find('{')
+                .expect("recognized Gemma call has a body")
+        })
+    }
+
     fn accepts_buffer_start(&self, previous: Option<char>) -> bool {
         previous.is_none_or(|ch| !is_call_name_char(ch))
     }

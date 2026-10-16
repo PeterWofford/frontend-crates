@@ -1913,6 +1913,7 @@ def _guided_response_markup(fam, recipient, after_payload=False):
 for _shape, _body in (
     ("object", '{"city":"Rome"}'),
     ("array", '[{"name":"get_weather","arguments":{"city":"Rome"}}]'),
+    ("string", json.dumps('[{"name":"get_weather","arguments":{"city":"Rome"}}]')),
 ):
     _native_json_inputs = {
         family: (stimulus + opener + _body + closer + GUIDED_ONE_CALL, GUIDED_UNSUPPORTED, M, visible)

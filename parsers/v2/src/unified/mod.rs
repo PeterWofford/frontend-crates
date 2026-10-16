@@ -3719,14 +3719,6 @@ impl GuidedState {
         flush: bool,
     ) -> (Option<(usize, usize)>, bool) {
         let limit = input.find(['{', '[']);
-        if let Some(boundary) = self.invoke_boundary.as_ref()
-            && !boundary.owns_guided_prefix()
-            && let Some((at, _)) = self.grammar.find_invoke_start(input)
-            && limit.is_none_or(|limit| at < limit)
-            && !boundary.opens(input, at)
-        {
-            return (None, false);
-        }
         // The shared scanner uses limit to bound header terminators. Response
         // additionally excludes markers and pending headers inside JSON values.
         let marker = self
@@ -4432,7 +4424,11 @@ impl GuidedState {
                                     break;
                                 }
                             }
-                        } else if self.invoke_boundary.is_some() {
+                        } else if self
+                            .invoke_boundary
+                            .as_ref()
+                            .is_some_and(|boundary| boundary.owns_guided_prefix())
+                        {
                             if !flush || self.json.is_empty() {
                                 let mut input = std::mem::take(&mut self.json);
                                 input.push_str(&self.input);
@@ -4572,15 +4568,29 @@ impl GuidedState {
                         let mut payload = None;
                         let mut non_call_prefix = false;
                         if reject_buffering {
-                            if let Some(candidate) =
+                            while let Some(candidate) =
                                 self.response_prefill_probe.next_complete_value(&self.input)
                             {
+                                let input = std::mem::take(&mut self.input);
+                                let native_owned =
+                                    self.native_owns_response_value(&input, candidate.start);
+                                self.input = input;
+                                if native_owned {
+                                    continue;
+                                }
                                 if self.is_guided_payload(&self.input[candidate.clone()]) {
                                     payload = Some(candidate);
-                                } else {
-                                    payload = Some(candidate.end..candidate.end);
-                                    non_call_prefix = true;
+                                    break;
                                 }
+                                if self
+                                    .response_native_body(&self.input, candidate.start)
+                                    .is_some()
+                                {
+                                    continue;
+                                }
+                                payload = Some(candidate.end..candidate.end);
+                                non_call_prefix = true;
+                                break;
                             }
                             if payload.is_none() {
                                 // Reject is transactional: response prose cannot be
@@ -4644,13 +4654,15 @@ impl GuidedState {
                             let keep = self.response_prefix_holdback(&combined[..safe_len], flush);
                             let response_marker =
                                 self.reasoning.response_marker_at(&combined[..safe_len]);
-                            let control_marker = self.control_marker_at(
-                                &combined[..safe_len + usize::from(safe_len < combined.len())],
-                                self.input_previous,
-                                Some(combined[..safe_len].find(['{', '[']).unwrap_or(safe_len)),
-                                &[],
-                                flush,
-                            );
+                            let control_marker = self
+                                .control_marker_at(
+                                    &combined,
+                                    self.input_previous,
+                                    Some(combined[..safe_len].find(['{', '[']).unwrap_or(safe_len)),
+                                    &[],
+                                    flush,
+                                )
+                                .filter(|(at, _)| *at < safe_len);
                             let response_marker = response_marker
                                 .into_iter()
                                 .chain(control_marker)
@@ -5583,6 +5595,28 @@ impl GuidedState {
         output
     }
 
+    fn response_native_body(&self, input: &str, candidate_start: usize) -> Option<(usize, usize)> {
+        let boundary = self.invoke_boundary.as_ref()?;
+        let (at, _) = self.grammar.find_invoke_start(input)?;
+        if at >= candidate_start {
+            return None;
+        }
+        let body = boundary.guided_native_body_start(input, at)?;
+        Some((at, body))
+    }
+
+    fn native_owns_response_value(&mut self, input: &str, candidate_start: usize) -> bool {
+        let Some((at, body)) = self.response_native_body(input, candidate_start) else {
+            return false;
+        };
+        // A JSON body can itself be a guided wrapper. Values nested inside a
+        // lexical native body stay native until that scanner releases its span.
+        body < candidate_start
+            && self
+                .invoke_end_append(&input[at..], at, false)
+                .is_none_or(|len| candidate_start < at + len)
+    }
+
     /// Response prose remains speculative until the existing payload cursor owns a
     /// call. Reusing that cursor preserves its argument offsets across the handoff.
     fn response_payload(
@@ -5595,6 +5629,9 @@ impl GuidedState {
                 input,
                 self.invalid_payload == InvalidGuidedPayloadPolicy::StreamBestEffort,
             ) {
+                if self.native_owns_response_value(input, candidate.start) {
+                    continue;
+                }
                 if self.is_guided_payload(&input[candidate.clone()]) {
                     self.cursor.reset();
                     self.response_prefill_probe.cursor_candidate_start = None;
@@ -5608,6 +5645,9 @@ impl GuidedState {
                 }
                 self.cursor.reset();
                 self.response_prefill_probe.cursor_candidate_start = None;
+                if self.response_native_body(input, candidate.start).is_some() {
+                    continue;
+                }
                 return ResponsePayloadSearch::ProsePrefix(candidate.end);
             }
             if self.invalid_payload != InvalidGuidedPayloadPolicy::StreamBestEffort {
@@ -5625,6 +5665,9 @@ impl GuidedState {
             let Some(start) = candidate_start else {
                 return ResponsePayloadSearch::Pending;
             };
+            if self.native_owns_response_value(input, start) {
+                return ResponsePayloadSearch::Pending;
+            }
             if self.stream_response_candidate(input, start, streamed) {
                 return ResponsePayloadSearch::Payload(start..input.len());
             }
