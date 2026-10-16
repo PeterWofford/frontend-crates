@@ -2162,6 +2162,12 @@ pub(crate) fn guided_append_work() -> usize {
     GUIDED_APPEND_REPLACEMENTS.with(std::cell::Cell::get)
 }
 
+enum ResponsePayloadSearch {
+    Payload(Range<usize>),
+    ProsePrefix(usize),
+    Pending,
+}
+
 /// Tracks complete JSON values in response-prefilled prose without reparsing the
 /// accumulated response on every streamed chunk.
 #[derive(Debug, Default)]
@@ -3707,6 +3713,31 @@ impl GuidedState {
         .min()
     }
 
+    fn response_control_before_json(
+        &mut self,
+        input: &str,
+        flush: bool,
+    ) -> (Option<(usize, usize)>, bool) {
+        let limit = input.find(['{', '[']);
+        if let Some(boundary) = self.invoke_boundary.as_ref()
+            && !boundary.owns_guided_prefix()
+            && let Some((at, _)) = self.grammar.find_invoke_start(input)
+            && limit.is_none_or(|limit| at < limit)
+            && !boundary.opens(input, at)
+        {
+            return (None, false);
+        }
+        // The shared scanner uses limit to bound header terminators. Response
+        // additionally excludes markers and pending headers inside JSON values.
+        let marker = self
+            .control_marker_at(input, self.input_previous, limit, &[], flush)
+            .filter(|(at, _)| limit.is_none_or(|limit| *at < limit));
+        let pending = self
+            .invoke_holdback_start(input)
+            .is_some_and(|at| limit.is_none_or(|limit| at < limit));
+        (marker, pending)
+    }
+
     fn response_prefix_holdback(&self, text: &str, flush: bool) -> usize {
         guided_holdback_len_for_grammar(
             text,
@@ -4370,14 +4401,8 @@ impl GuidedState {
                             {
                                 let mut input = std::mem::take(&mut self.json);
                                 input.push_str(&self.input);
-                                let limit = input.find(['{', '[']);
-                                let marker = self.control_marker_at(
-                                    &input,
-                                    self.input_previous,
-                                    limit,
-                                    &[],
-                                    flush,
-                                );
+                                let (marker, pending) =
+                                    self.response_control_before_json(&input, flush);
                                 self.input = input;
                                 if let Some((at, len)) = marker {
                                     let end = at + len;
@@ -4403,7 +4428,32 @@ impl GuidedState {
                                     self.response_prefill_probe.reset();
                                     continue;
                                 }
-                                if self.invoke_holdback_start(&self.input).is_some() {
+                                if pending {
+                                    break;
+                                }
+                            }
+                        } else if self.invoke_boundary.is_some() {
+                            if !flush || self.json.is_empty() {
+                                let mut input = std::mem::take(&mut self.json);
+                                input.push_str(&self.input);
+                                let (marker, pending) =
+                                    self.response_control_before_json(&input, flush);
+                                self.input = input;
+                                if let Some((at, len)) = marker {
+                                    let end = at + len;
+                                    let whitespace = self.input[end..].len()
+                                        - self.input[end..].trim_start().len();
+                                    self.prose.consume_recovery(
+                                        &self.input[at..end],
+                                        self.grammar.invoke_start_for(&self.input[at..end]),
+                                    );
+                                    self.input.drain(at..end + whitespace);
+                                    self.stripped_markup = true;
+                                    self.reset_invoke_candidate();
+                                    self.response_prefill_probe.reset();
+                                    continue;
+                                }
+                                if pending {
                                     break;
                                 }
                             }
@@ -4481,9 +4531,15 @@ impl GuidedState {
                             combined.push_str(&self.input);
                             self.input.clear();
                             let mut streamed_payload = Vec::new();
-                            if let Some(payload) =
-                                self.response_payload(&combined, &mut streamed_payload)
-                            {
+                            let search = self.response_payload(&combined, &mut streamed_payload);
+                            if let ResponsePayloadSearch::ProsePrefix(end) = search {
+                                self.push_response_prose(&mut output, &combined[..end]);
+                                self.response_prefill_probe.reset();
+                                self.reset_invoke_candidate();
+                                self.input = combined[end..].to_string();
+                                continue;
+                            }
+                            if let ResponsePayloadSearch::Payload(payload) = search {
                                 self.push_response_prose(&mut output, &combined[..payload.start]);
                                 output.extend(streamed_payload);
                                 self.response_prefill_probe.reset();
@@ -4514,13 +4570,16 @@ impl GuidedState {
                             == InvalidGuidedPayloadPolicy::Reject
                             && self.json.is_empty();
                         let mut payload = None;
+                        let mut non_call_prefix = false;
                         if reject_buffering {
-                            while let Some(candidate) =
+                            if let Some(candidate) =
                                 self.response_prefill_probe.next_complete_value(&self.input)
                             {
                                 if self.is_guided_payload(&self.input[candidate.clone()]) {
                                     payload = Some(candidate);
-                                    break;
+                                } else {
+                                    payload = Some(candidate.end..candidate.end);
+                                    non_call_prefix = true;
                                 }
                             }
                             if payload.is_none() {
@@ -4545,7 +4604,16 @@ impl GuidedState {
                         };
                         let mut streamed_payload = Vec::new();
                         if !reject_buffering {
-                            payload = self.response_payload(&combined, &mut streamed_payload);
+                            match self.response_payload(&combined, &mut streamed_payload) {
+                                ResponsePayloadSearch::Payload(candidate) => {
+                                    payload = Some(candidate)
+                                }
+                                ResponsePayloadSearch::ProsePrefix(end) => {
+                                    payload = Some(end..end);
+                                    non_call_prefix = true;
+                                }
+                                ResponsePayloadSearch::Pending => {}
+                            }
                         }
                         let Some(payload) = payload else {
                             if self.invalid_payload == InvalidGuidedPayloadPolicy::Reject {
@@ -4663,7 +4731,7 @@ impl GuidedState {
                             }
                             break;
                         };
-                        if !self.response_prefill_prose.is_empty() {
+                        if !non_call_prefix && !self.response_prefill_prose.is_empty() {
                             let prefix = std::mem::take(&mut self.response_prefill_prose);
                             push_run(&mut output, Kind::Text, &prefix);
                             self.response_prefill_text_emitted = true;
@@ -4678,6 +4746,7 @@ impl GuidedState {
                                 continue;
                             }
                         }
+                        let mut prefix_output = Vec::new();
                         let mut prefix_at = 0;
                         while prefix_at < payload.start {
                             if self.response_prefill_after_marker {
@@ -4707,7 +4776,7 @@ impl GuidedState {
                                 ProseControl::Literal(length) if length > 0 => {
                                     let text = &prefix[..length];
                                     self.prose.consume(text);
-                                    push_run(&mut output, Kind::Text, text);
+                                    push_run(&mut prefix_output, Kind::Text, text);
                                     self.response_prefill_text_emitted = true;
                                     prefix_at += length;
                                     continue;
@@ -4720,7 +4789,7 @@ impl GuidedState {
                                     // Include the opening JSON delimiter as boundary
                                     // evidence, exactly as when it arrives alone in a
                                     // streamed chunk. It is never part of the prefix.
-                                    &combined[prefix_at..payload.start + 1],
+                                    &combined[prefix_at..(payload.start + 1).min(combined.len())],
                                     combined[..prefix_at]
                                         .chars()
                                         .next_back()
@@ -4741,7 +4810,7 @@ impl GuidedState {
                             let Some((marker_at, marker_len)) = marker else {
                                 let text = &combined[prefix_at..payload.start];
                                 if self.response_prefill_text_emitted || !text.trim().is_empty() {
-                                    self.push_response_prose(&mut output, text);
+                                    self.push_response_prose(&mut prefix_output, text);
                                     self.response_prefill_text_emitted = true;
                                 }
                                 break;
@@ -4749,7 +4818,7 @@ impl GuidedState {
                             let text_end = prefix_at + marker_at;
                             let text = &combined[prefix_at..text_end];
                             if self.response_prefill_text_emitted || !text.trim().is_empty() {
-                                self.push_response_prose(&mut output, text);
+                                self.push_response_prose(&mut prefix_output, text);
                                 self.response_prefill_text_emitted = true;
                             }
                             self.stripped_markup = true;
@@ -4762,6 +4831,23 @@ impl GuidedState {
                             self.reset_invoke_candidate();
                             self.response_prefill_after_marker = true;
                         }
+                        if non_call_prefix {
+                            if self.invalid_payload == InvalidGuidedPayloadPolicy::Reject {
+                                for event in prefix_output {
+                                    if let UnifiedParserEvent::Text(text) = event {
+                                        self.response_prefill_prose.push_str(&text);
+                                    }
+                                }
+                            } else {
+                                output.extend(prefix_output);
+                            }
+                            self.response_prefill_probe.reset();
+                            self.reset_invoke_candidate();
+                            self.input = combined[payload.start..].to_string();
+                            self.json.clear();
+                            continue;
+                        }
+                        output.extend(prefix_output);
                         output.extend(streamed_payload);
                         self.response_prefill_probe.reset();
                         self.json = combined[payload.start..].to_string();
@@ -5503,7 +5589,7 @@ impl GuidedState {
         &mut self,
         input: &str,
         streamed: &mut Vec<UnifiedParserEvent>,
-    ) -> Option<Range<usize>> {
+    ) -> ResponsePayloadSearch {
         loop {
             if let Some(candidate) = self.response_prefill_probe.next_value(
                 input,
@@ -5512,20 +5598,20 @@ impl GuidedState {
                 if self.is_guided_payload(&input[candidate.clone()]) {
                     self.cursor.reset();
                     self.response_prefill_probe.cursor_candidate_start = None;
-                    return Some(candidate);
+                    return ResponsePayloadSearch::Payload(candidate);
                 }
                 if self.invalid_payload == InvalidGuidedPayloadPolicy::StreamBestEffort
                     && self.response_prefill_probe.json.invalid
                     && self.stream_response_candidate(input, candidate.start, streamed)
                 {
-                    return Some(candidate);
+                    return ResponsePayloadSearch::Payload(candidate);
                 }
                 self.cursor.reset();
                 self.response_prefill_probe.cursor_candidate_start = None;
-                continue;
+                return ResponsePayloadSearch::ProsePrefix(candidate.end);
             }
             if self.invalid_payload != InvalidGuidedPayloadPolicy::StreamBestEffort {
-                return None;
+                return ResponsePayloadSearch::Pending;
             }
             let candidate_start = self
                 .response_prefill_probe
@@ -5536,12 +5622,14 @@ impl GuidedState {
                 self.cursor.reset();
                 self.response_prefill_probe.cursor_candidate_start = None;
             }
-            let start = candidate_start?;
+            let Some(start) = candidate_start else {
+                return ResponsePayloadSearch::Pending;
+            };
             if self.stream_response_candidate(input, start, streamed) {
-                return Some(start..input.len());
+                return ResponsePayloadSearch::Payload(start..input.len());
             }
             if self.response_prefill_probe.scan_at == input.len() {
-                return None;
+                return ResponsePayloadSearch::Pending;
             }
         }
     }

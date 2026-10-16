@@ -1941,6 +1941,19 @@ for _shape, _body in (
         {"starting_state": "Response", "tool_output_mode": "GuidedJson", "named_tool": None},
         _native_json_inputs,
     ))
+    if _shape == "array":
+        EDGE.append((
+            "guided_json_noncall_before_native_array_before_payload",
+            "Response-prefilled required guided output begins with a complete non-call JSON object, "
+            "then literal prose, a native invocation containing a call-shaped array, and the real guided call. "
+            "The non-call value remains visible; it cannot disable native ownership of the later array. "
+            "Only the final Paris call dispatches across every chunk boundary.",
+            ["I3", "I7"],
+            [{"kind": "text", "text": None}, {"kind": "tool_call", "name": "get_weather", "arguments": {"city": "Paris"}}],
+            {"starting_state": "Response", "tool_output_mode": "GuidedJson", "named_tool": None},
+            {family: ("{}" + stimulus, verdict, peer, "{}" + visible)
+             for family, (stimulus, verdict, peer, visible) in _native_json_inputs.items()},
+        ))
 
 EDGE += [
     ("qwen3_guided_reasoning_opener_inside_native_header",

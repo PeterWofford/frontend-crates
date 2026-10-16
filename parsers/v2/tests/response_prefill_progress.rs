@@ -74,8 +74,12 @@ fn response_prefill_native_body_cannot_become_the_guided_payload() {
                 )
             };
             let quoted_prefix = format!("\"{literal_prefix}\" then prose ");
-            for prefix in ["", literal_prefix, &quoted_prefix] {
+            let non_call_prefix = format!("{{}}{literal_prefix}");
+            for prefix in ["", literal_prefix, &quoted_prefix, &non_call_prefix] {
                 for named in [false, true] {
+                    if named && prefix == non_call_prefix {
+                        continue;
+                    }
                     let payload = if named {
                         r#"{"city":"Paris"}"#
                     } else {
@@ -176,6 +180,87 @@ fn response_prefill_native_body_cannot_become_the_guided_payload() {
                         }
                     }
                 }
+            }
+        }
+    }
+}
+
+#[test]
+fn response_prefill_boundary_owned_native_body_stays_outside_guided_payload() {
+    // Corpus initialization cannot choose all three public invalid-payload policies.
+    for (family, input) in [
+        (
+            "deepseek_v4",
+            "I mean <think>self literal</think><｜DSML｜tool_calls><｜DSML｜invoke name=\"f\"><｜DSML｜parameter name=\"x\" string=\"false\">{\"city\": \"Rome\"}</｜DSML｜parameter></｜DSML｜invoke></｜DSML｜tool_calls>[{\"name\": \"get_weather\", \"arguments\": {\"city\": \"Paris\"}}]",
+        ),
+        (
+            "deepseek_v4",
+            "I mean <think>self literal</think><｜DSML｜tool_calls><｜DSML｜invoke name=\"f\"><｜DSML｜parameter name=\"x\" string=\"false\">[{\"name\": \"get_weather\", \"arguments\": {\"city\": \"Rome\"}}]</｜DSML｜parameter></｜DSML｜invoke></｜DSML｜tool_calls>[{\"name\": \"get_weather\", \"arguments\": {\"city\": \"Paris\"}}]",
+        ),
+        (
+            "deepseek_v41",
+            "I mean <think>self literal</think><｜DSML｜ calls><｜DSML｜ invoke name=\"f\"><｜DSML｜ parameter name=\"x\" string=\"false\">{\"city\": \"Rome\"}</｜DSML｜ parameter></｜DSML｜ invoke></｜DSML｜ calls>[{\"name\": \"get_weather\", \"arguments\": {\"city\": \"Paris\"}}]",
+        ),
+        (
+            "deepseek_v41",
+            "I mean <think>self literal</think><｜DSML｜ calls><｜DSML｜ invoke name=\"f\"><｜DSML｜ parameter name=\"x\" string=\"false\">[{\"name\": \"get_weather\", \"arguments\": {\"city\": \"Rome\"}}]</｜DSML｜ parameter></｜DSML｜ invoke></｜DSML｜ calls>[{\"name\": \"get_weather\", \"arguments\": {\"city\": \"Paris\"}}]",
+        ),
+        (
+            "glm47",
+            "I mean <think>self literal</think><tool_call>f<arg_key>x</arg_key><arg_value>{\"city\": \"Rome\"}</arg_value></tool_call>[{\"name\": \"get_weather\", \"arguments\": {\"city\": \"Paris\"}}]",
+        ),
+        (
+            "glm47",
+            "I mean <think>self literal</think><tool_call>f<arg_key>x</arg_key><arg_value>[{\"name\": \"get_weather\", \"arguments\": {\"city\": \"Rome\"}}]</arg_value></tool_call>[{\"name\": \"get_weather\", \"arguments\": {\"city\": \"Paris\"}}]",
+        ),
+    ] {
+        for non_call in ["", "{}"] {
+            let input = format!("{non_call}{input}");
+            let expected = vec![
+                UnifiedEvent::Text {
+                    text: format!("{non_call}I mean <think>self literal</think>"),
+                },
+                UnifiedEvent::ToolCall {
+                    name: "get_weather".into(),
+                    arguments: serde_json::json!({"city":"Paris"}),
+                },
+            ];
+            for policy in [
+                InvalidGuidedPayloadPolicy::Reject,
+                InvalidGuidedPayloadPolicy::RecoverAsText,
+                InvalidGuidedPayloadPolicy::StreamBestEffort,
+            ] {
+                let mut parser = create_unified_parser_for_family(family, &[]).unwrap();
+                let init = UnifiedParserInit {
+                    starting_state: UnifiedParserStartingState::Response,
+                    tool_output_mode: UnifiedToolOutputMode::GuidedJson { named_tool: None },
+                    invalid_guided_payload: policy,
+                    ..Default::default()
+                };
+                for split in input.char_indices().map(|(at, _)| at).chain([input.len()]) {
+                    parser.reset();
+                    parser.initialize_request(init.clone()).unwrap();
+                    let mut events = parser.push(&input[..split]).unwrap();
+                    events.extend(parser.push(&input[split..]).unwrap());
+                    events.extend(parser.finish().unwrap().events);
+                    assert_eq!(
+                        assemble(&events),
+                        expected,
+                        "{family} {policy:?} split={split}"
+                    );
+                }
+                parser.reset();
+                parser.initialize_request(init).unwrap();
+                let mut events = Vec::new();
+                for character in input.chars() {
+                    events.extend(parser.push(&character.to_string()).unwrap());
+                }
+                events.extend(parser.finish().unwrap().events);
+                assert_eq!(
+                    assemble(&events),
+                    expected,
+                    "{family} {policy:?} character chunks"
+                );
             }
         }
     }

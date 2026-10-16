@@ -486,6 +486,7 @@ def test_gpt_oss_response_applicability_is_not_derived_from_the_denylist() -> No
         "guided_response_quoted_control_braces_named",
         "guided_json_native_parameter_object_before_payload",
         "guided_json_native_parameter_array_before_payload",
+        "guided_json_noncall_before_native_array_before_payload",
     }
     cases = build_cases("gpt_oss")
     for scenario in scenarios:
@@ -509,6 +510,7 @@ def test_response_state_uses_only_control_marker_contracts() -> None:
         "guided_response_quoted_control_braces_required",
         "guided_json_native_parameter_object_before_payload",
         "guided_json_native_parameter_array_before_payload",
+        "guided_json_noncall_before_native_array_before_payload",
     }
     for family in NATIVE_FAMILIES:
         cases = build_cases(family)
@@ -853,15 +855,15 @@ def test_unified_case_counts_match_the_generator():
     denominator survived in the prose before.
     """
     family_specific = {
-        "deepseek_v4": 128,
-        "deepseek_v41": 125,
-        "gemma4": 121,
-        "glm47": 119,
-        "gpt_oss": 117,
-        "kimi_k2": 119,
-        "kimi_k3": 126,
-        "muse_glimmer": 126,
-        "qwen3": 122,
+        "deepseek_v4": 129,
+        "deepseek_v41": 126,
+        "gemma4": 122,
+        "glm47": 120,
+        "gpt_oss": 118,
+        "kimi_k2": 120,
+        "kimi_k3": 127,
+        "muse_glimmer": 127,
+        "qwen3": 123,
     }
     assert set(family_specific) == set(FAMILIES)
     per_family = {fam: len(build_cases(fam)) for fam in FAMILIES}
@@ -874,7 +876,7 @@ def test_deferred_case_ids_are_not_in_the_active_taxonomy():
     deferred = {"1-2", "5-5", "6-2", "32-6", "50-1", "50-2"} | {
         f"31-{number}" for number in range(31, 41)
     }
-    assert len(UNIFIED_TAX) == 170 + len(CONFORMANCE_CASES)
+    assert len(UNIFIED_TAX) == 171 + len(CONFORMANCE_CASES)
     assert not {f"UNIFIED.{case_id}" for case_id in deferred} & {
         numbered_id(scenario) for scenario in UNIFIED_TAX
     }
@@ -1109,6 +1111,8 @@ def test_retained_capture_coverage_rejects_one_missing_case():
 
 
 def _family_value(scenario, family):
+    if scenario == "guided_json_noncall_before_native_array_before_payload":
+        return "{}" + _family_value("guided_json_native_parameter_array_before_payload", family)
     reason_open, reason_close, _, _ = control_tokens(family)
     marker = G._NATIVE_QUOTED_CONTROL.get(family, control_tokens(family)[2])
     if scenario in {
@@ -1659,6 +1663,7 @@ def _assert_cross_family_contract(corpus):
                 if scenario in {
                     "guided_json_native_parameter_object_before_payload",
                     "guided_json_native_parameter_array_before_payload",
+                    "guided_json_noncall_before_native_array_before_payload",
                 }:
                     for call in suppressed:
                         if isinstance(call["arguments"]["x"], str):
