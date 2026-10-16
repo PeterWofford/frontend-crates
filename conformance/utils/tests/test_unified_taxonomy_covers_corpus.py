@@ -830,27 +830,27 @@ def test_unified_case_counts_match_the_generator():
     per_family = {fam: len(build_cases(fam)) for fam in FAMILIES}
     for fam in FAMILIES:
         family_specific = {
-            "deepseek_v4": 126,
-            "deepseek_v41": 123,
-            "gemma4": 119,
-            "glm47": 117,
-            "kimi_k2": 117,
-            "kimi_k3": 124,
-            "muse_glimmer": 126,
-            "qwen3": 122,
+            "deepseek_v4": 130,
+            "deepseek_v41": 127,
+            "gemma4": 123,
+            "glm47": 121,
+            "kimi_k2": 121,
+            "kimi_k3": 128,
+            "muse_glimmer": 130,
+            "qwen3": 126,
         }.get(fam)
         if fam == "gpt_oss":
-            assert per_family[fam] == 159
+            assert per_family[fam] == 163
         else:
             assert per_family[fam] == family_specific + len(CONFORMANCE_CASES), f"{fam} diverged from the expected case count"
-    assert sum(per_family.values()) == 974 + len(NATIVE_FAMILIES) * len(CONFORMANCE_CASES) + 159
+    assert sum(per_family.values()) == 1006 + len(NATIVE_FAMILIES) * len(CONFORMANCE_CASES) + 163
 
 
 def test_deferred_case_ids_are_not_in_the_active_taxonomy():
     deferred = {"1-2", "5-5", "6-2", "32-6", "50-1", "50-2"} | {
         f"31-{number}" for number in range(31, 41)
     }
-    assert len(UNIFIED_TAX) == 158 + len(CONFORMANCE_CASES)
+    assert len(UNIFIED_TAX) == 162 + len(CONFORMANCE_CASES)
     assert not {f"UNIFIED.{case_id}" for case_id in deferred} & {
         numbered_id(scenario) for scenario in UNIFIED_TAX
     }
@@ -1037,7 +1037,7 @@ def _assert_retained_capture_coverage(captured, expected):
 def _assert_reference_measurements_start_at_introduction(store):
     shared_ids = {f"UNIFIED.{number}" for number in ("7-glm_ref_object", "7-glm_ref_encoded_targets", "7-glm_ref_json_looking_strings", "7-glm_ref_scalar_types")}
     for (family, implementation), history in store.histories.items():
-        if implementation != "dynamo_v2":
+        if implementation != "dynamo_v2" or family not in NATIVE_FAMILIES:
             continue
         for capture_id in history.ordered_capture_ids():
             measured = {

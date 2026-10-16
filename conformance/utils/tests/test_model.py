@@ -332,6 +332,9 @@ def _peer_versions(tree: str) -> dict[str, set[str]]:
 
 # Labels and structured metadata must identify the same captured version.
 def _assert_candidate_versioned(candidate, location):
+    if candidate.get("parse_mode") == "split" and candidate.get("impl") == "dynamo":
+        assert candidate["label"] == table._full_label("dynamo_v2", candidate["version"], "split: v1 reasoning + v2 tool parser"), location
+        return
     if candidate.get("parse_mode") == "unified" and candidate.get("impl") == "dynamo":
         assert candidate["label"] == table._full_label("dynamo_v2", candidate["version"], "stream"), location
         return
@@ -554,12 +557,15 @@ def test_unified_tab_keeps_every_captured_vllm_parser_version(model_v2):
         all(cell["cmp"][key].get("na") == 1 for key in peer_keys)
         for cell in muse["cells"].values()
     )
-    muse_tip = next(iter(muse["cells"].values()))["tooltip"]
+    muse_tip = leaf_cells(muse)["tool_only"]["tooltip"]
     # Fresh request-bound classifications retain their release identity even
     # when both releases lack the same parser.
     for key, version in (("vllm_rust", "0.25.1"), ("vllm_rust@0.26.0", "0.26.0")):
         native = next(candidate for candidate in muse_tip["candidates"] if candidate["key"] == key)
         assert native["block"]["unavailable"] == f"No vLLM Rust Unified parser is registered for muse_glimmer at {version}."
+        missing = next(candidate for candidate in leaf_cells(muse)["dotted_name_minimal"]["tooltip"]["candidates"] if candidate["key"] == key)
+        assert missing["block"]["unavailable_code"] == "missing_capture"
+        assert "events" not in missing["block"]
 
 
 def test_unified_sglang_versions_are_streamed_and_grouped_without_duplicate_backend(model_v2):
@@ -961,7 +967,7 @@ def test_current_label_is_stable_before_and_after_release(monkeypatch, input_mod
     assert table._full_label("dynamo_v2", "0.7.9", input_mode) == f"Dynamo v2 Rust 0.7.9 ({mode})"
 
 
-def test_unified_dynamo_labels_identify_unified_parser(model_v2):
+def test_unified_dynamo_labels_identify_capture_path(model_v2):
     producer = table._dynamo_v2_producer()
     tab = _tab(model_v2, "tab-unified")
     reference = next(candidate for candidate in tab["candidates"] if candidate["key"] == "dynamo")
@@ -971,15 +977,15 @@ def test_unified_dynamo_labels_identify_unified_parser(model_v2):
     assert reference["label_html"] == full_label
     assert reference["version"] == producer["crate_version"]
 
-    tooltip_labels = [
-        candidate["label"]
-        for row in tab["rows"]
-        for cell in leaf_cells(row).values()
-        for candidate in cell.get("tooltip", {}).get("candidates", [])
-        if candidate["key"] == "dynamo" and candidate.get("version") == producer["crate_version"]
-    ]
-    assert tooltip_labels
-    assert set(tooltip_labels) == {full_label}
+    for row in tab["rows"]:
+        mode = "split: v1 reasoning + v2 tool parser" if row["family"] == "gpt_oss" else "stream"
+        tooltip_labels = {
+            candidate["label"]
+            for cell in leaf_cells(row).values()
+            for candidate in cell.get("tooltip", {}).get("candidates", [])
+            if candidate["key"] == "dynamo" and candidate.get("version") == producer["crate_version"]
+        }
+        assert tooltip_labels == {table._full_label("dynamo_v2", expected, mode)}, row["family"]
 
 
 def test_tc_source_capture_versions_survive_label_parsing():
@@ -1463,7 +1469,7 @@ def test_gpt_oss_uncaptured_peer_batch_results_are_missing_not_unsupported(model
     keys = {"vllm_python_batch@" + version for version in ("0.23.0", "0.24.0", "0.25.1", "0.26.0")}
     keys.add("sglang_python_batch@0.5.14")
     cases = [cell for cell in leaf_cells(row).values() if cell["status"] != "na"]
-    assert len(cases) == 159
+    assert len(cases) == 163
     assert leaf_cells(row)["tool_only"]["case_id"] == "UNIFIED.1-tool_only"
     missing = []
     for cell in cases:
@@ -1475,7 +1481,7 @@ def test_gpt_oss_uncaptured_peer_batch_results_are_missing_not_unsupported(model
             assert "no parser" not in block["unavailable"]
             assert cell["cmp"][key]["na"] == 1
             missing.append(block)
-    assert len(missing) == 795
+    assert len(missing) == 815
     unsupported = [candidate["block"] for other in tab["rows"] for cell in leaf_cells(other).values()
                    for candidate in cell.get("tooltip", {}).get("candidates", [])
                    if "_python_batch@" in candidate["key"] and candidate["block"].get("unavailable_code") == "unsupported_family"]
