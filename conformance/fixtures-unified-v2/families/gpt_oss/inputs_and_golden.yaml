@@ -1,7 +1,7 @@
 input_document:
   family: gpt_oss
   mode: unified
-  model_label: gpt_oss
+  model_label: GPT-OSS
 golden_document:
   family: gpt_oss
   mode: unified

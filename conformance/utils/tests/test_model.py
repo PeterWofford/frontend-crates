@@ -1451,9 +1451,19 @@ def test_unified_event_reordering_is_a_mismatch():
     assert table._unified_classify("gpt_oss", golden, batch) == "ORDER"
 
 
+def test_gpt_oss_has_a_visible_featured_row():
+    top_n, others = table._build_display_groups(
+        {("gpt_oss", "tool_only"): {}}, {"gpt_oss": "GPT-OSS"}
+    )
+    assert ("GPT-OSS", "gpt_oss") in top_n
+    assert not others
+
+
 def test_gpt_oss_uncaptured_peer_batch_results_are_missing_not_unsupported(model_v2):
     tab = _tab(model_v2, "tab-unified")
     row = next(row for row in tab["rows"] if row.get("family") == "gpt_oss")
+    assert row["model_label"] == "GPT-OSS"
+    assert row["section"] == "Top-N models"
     keys = {"vllm_python_batch@" + version for version in ("0.23.0", "0.24.0", "0.25.1", "0.26.0")}
     keys.add("sglang_python_batch@0.5.14")
     cases = [cell for cell in leaf_cells(row).values() if cell["status"] != "na"]
