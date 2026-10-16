@@ -96,7 +96,7 @@ impl HarmonyToolStreamParser {
         result
     }
 
-    fn to_stream_result(&mut self, result: ToolParseResult) -> ToolStreamResult {
+    fn stream_result(&mut self, result: ToolParseResult) -> ToolStreamResult {
         let mut tool_call_chunks = Vec::new();
         for call in result.calls {
             let id = format!("call_{:08}", self.next_id);
@@ -130,7 +130,7 @@ impl HarmonyToolStreamParser {
         match self.push_text(delta_text) {
             Ok(events) => {
                 let result = self.project(events, false);
-                self.to_stream_result(result)
+                self.stream_result(result)
             }
             Err(error) => {
                 tracing::warn!(why = "harmony_text_projection_failed", error = %error, "legacy Harmony text projection failed");
@@ -143,7 +143,7 @@ impl HarmonyToolStreamParser {
         match self.push_token_ids(token_ids) {
             Ok(events) => {
                 let result = self.project(events, false);
-                self.to_stream_result(result)
+                self.stream_result(result)
             }
             Err(error) => {
                 tracing::warn!(why = "harmony_token_projection_failed", error = %error, "legacy Harmony token projection failed");
@@ -156,7 +156,7 @@ impl HarmonyToolStreamParser {
         match self.finish_events() {
             Ok(events) => {
                 let result = self.project(events, true);
-                self.to_stream_result(result)
+                self.stream_result(result)
             }
             Err(error) => {
                 tracing::warn!(why = "harmony_finish_projection_failed", error = %error, "legacy Harmony finish projection failed");

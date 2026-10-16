@@ -338,12 +338,9 @@ impl HarmonyRuntime {
                 let _ = marker;
             } else {
                 self.outside_pending.push(id);
-                match self.encoding.tokenizer().decode_utf8(&self.outside_pending) {
-                    Ok(text) => {
-                        self.outside_pending.clear();
-                        output.push_text(text);
-                    }
-                    Err(_) => {}
+                if let Ok(text) = self.encoding.tokenizer().decode_utf8(&self.outside_pending) {
+                    self.outside_pending.clear();
+                    output.push_text(text);
                 }
             }
             return Ok(());
@@ -412,17 +409,17 @@ impl HarmonyRuntime {
             self.call_json_escape = false;
         }
 
-        if self.in_body {
-            if let Some(delta) = self.parser.last_content_delta()? {
-                match self.route.as_ref().unwrap_or(&Route::Suppress) {
-                    Route::Reasoning => output.push_reasoning(delta),
-                    Route::Text => output.push_text(delta),
-                    Route::Tool(_) => {
-                        self.update_json_string_state(&delta);
-                        self.call_content.push_str(&delta);
-                    }
-                    Route::Suppress => {}
+        if self.in_body
+            && let Some(delta) = self.parser.last_content_delta()?
+        {
+            match self.route.as_ref().unwrap_or(&Route::Suppress) {
+                Route::Reasoning => output.push_reasoning(delta),
+                Route::Text => output.push_text(delta),
+                Route::Tool(_) => {
+                    self.update_json_string_state(&delta);
+                    self.call_content.push_str(&delta);
                 }
+                Route::Suppress => {}
             }
         }
 
@@ -524,10 +521,10 @@ impl HarmonyRuntime {
 
     fn reset(&mut self, starting_state: UnifiedParserStartingState) -> Result<String> {
         let mut recovered = std::mem::take(&mut self.text_pending);
-        if !self.outside_pending.is_empty() {
-            if let Ok(text) = self.encoding.tokenizer().decode_utf8(&self.outside_pending) {
-                recovered.push_str(&text);
-            }
+        if !self.outside_pending.is_empty()
+            && let Ok(text) = self.encoding.tokenizer().decode_utf8(&self.outside_pending)
+        {
+            recovered.push_str(&text);
         }
         *self = Self::new(
             self.encoding.clone(),
