@@ -172,6 +172,13 @@ UNIFIED_TAX = {
     "gemma4_guided_json_visible_call_prose_before_reasoning": ("gemma", "1"),
     "gemma4_guided_json_malformed_call_prefix_before_reasoning": ("gemma", "2"),
     "glm47_parameterless_call_shape_inside_argument": ("glm5", "1"),
+    "gpt_oss_channel_header_variants": ("gpt_oss", "1"),
+    "gpt_oss_channel_first_tool_header": ("gpt_oss", "6"),
+    "gpt_oss_chat_template_tool_header": ("gpt_oss", "7"),
+    "gpt_oss_multiple_unknown_and_empty_tools": ("gpt_oss", "2"),
+    "gpt_oss_control_marker_inside_argument_string": ("gpt_oss", "3"),
+    "gpt_oss_truncated_tool_resynchronizes_at_next_message": ("gpt_oss", "4"),
+    "gpt_oss_truncated_tool_at_eof_is_dropped": ("gpt_oss", "5"),
 
     # Group 40 — Prefilled reasoning, happy
     "prefilled_reasoning_with_tool": (40, "1"), "prefilled_reasoning_with_guided_json": (40, "2"),
@@ -271,6 +278,7 @@ GROUP_DESCRIPTION_PREFIXES = {
     "deepseek": ("deepseek_v41_",),
     "muse": ("muse_",),
     "dsml": ("dsml_",),
+    "gpt_oss": ("gpt_oss_",),
 }
 
 

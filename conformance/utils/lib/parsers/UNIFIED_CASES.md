@@ -156,6 +156,21 @@ Every active Unified ID uses `UNIFIED.<group>-<description>`, for example `UNIFI
 
 <!-- TODO: Verify the historical aliases for the 14 cases deferred from PR #232 after the taxonomy merge: 1-2, 30-14, 31-31 through 31-40, and 50-1/2. Preserve their historical IDs. -->
 
+### GPT-OSS-specific
+
+- **`gpt_oss_channel_header_variants`** keeps the `analysis` channel in reasoning and preserves commentary tool and final events in order.
+- **`gpt_oss_chat_template_tool_header`** matches the GPT-OSS 20B/120B template sequence: analysis reasoning, recipient-first commentary JSON call, and final text.
+- **`gpt_oss_channel_first_tool_header`** routes a channel-first commentary header with the template JSON format label.
+- **`tool_block_never_closed_then_text`** keeps its historical GPT-OSS request unchanged; that request is plain text with no Harmony tool header, so its GPT-OSS expectation is visible text. The dedicated Harmony truncation cases above own tool-call recovery.
+- **`gpt_oss_multiple_unknown_and_empty_tools`** preserves call order, emits `{}` for an empty argument body, and does not filter unknown tool names against the offered schema.
+- **`gpt_oss_control_marker_inside_argument_string`** keeps every Harmony control-marker spelling inside a JSON string as argument data.
+- **`gpt_oss_truncated_tool_resynchronizes_at_next_message`** drops an incomplete tool message and retains later assistant content.
+- **`gpt_oss_truncated_tool_at_eof_is_dropped`** emits nothing for an incomplete tool message at end of stream.
+
+These inputs use Harmony message and channel framing, so other families cannot express the same headers natively; shared recovery and argument behavior remains covered by the numeric cases.
+
+GPT-OSS excludes generated crossings that require separate tool-open and tool-close tokens or a foreign parameter grammar: Harmony uses `<|call|>` as a terminal and does not use angle brackets to delimit argument values. GLM parameterless calls and Muse tool-recipient prose stay scoped to those grammars.
+
 ## End-to-end test cases (`End-to-end:` tags)
 
 Cases tagged `End-to-end:` name the corresponding end-to-end test case(s) in the Qwen3.6 run captured for PR #163 (`qwen36_pr163_test_cases.html` — 49 distinct cases, each run under two thinking-budget variants, at worker stream intervals 20 and 1). The two surfaces answer different questions and neither replaces the other:
