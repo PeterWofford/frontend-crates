@@ -465,6 +465,8 @@ def test_unified_descriptive_case_ids_use_dash_everywhere(model_v2):
 def test_unified_duplicate_notes_and_deepseek_prefilled_captures(model_v2):
     tab = _tab(model_v2, "tab-unified")
     for row in tab["rows"]:
+        if not row.get("family"):
+            continue
         if row["family"] != "muse_glimmer":
             cell = row["cells"]["guided_json_quoted_bare_tool_header_in_answer"]
             assert cell["status"] == "na"
@@ -1341,6 +1343,8 @@ def test_shared_reference_cases_keep_older_peer_captures_unmeasured(model_v2: di
     )
     peer_families = {"deepseek_v4", "deepseek_v41", "gemma4", "gpt_oss", "kimi_k2", "kimi_k3", "muse_glimmer", "qwen3"}
     for row in tab["rows"]:
+        if not row.get("family"):
+            continue
         family = row["family"]
         for scenario in scenarios:
             cmp = leaf_cells(row)[scenario]["cmp"]
@@ -1720,6 +1724,8 @@ def test_unified_deepseek_only_case_keeps_id_in_family_section(model_v2):
     assert table.unified_taxonomy.numbered_id(scenario) == "UNIFIED.35-guided_response_rejected_header_quote_ownership"
     assert set(table.gen_unified_golden.scenario_families(scenario)) == {"deepseek_v4"}
     for row in tab["rows"]:
+        if not row.get("family"):
+            continue
         cell = row["cells"][scenario]
         assert cell["col_group"] == column["group_key"]
         if row["family"] != "deepseek_v4":

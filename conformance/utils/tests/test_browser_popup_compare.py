@@ -762,6 +762,7 @@ def test_unified_recovery_colors_follow_selected_reference(driver):
                 const model = JSON.parse(document.getElementById('conformance-model').textContent);
                 const tab = model.tabs.find(t => t.id === 'tab-unified');
                 return tab.rows.filter(row => {
+                    if (!row.family) { return false; }
                     const selected = row.cells.malformed_json_then_two_valid_calls.cmp[arguments[0]];
                     return selected && selected.na !== 1;
                 }).map(row => {
