@@ -1656,7 +1656,16 @@ def _assert_cross_family_contract(corpus):
             if init["tool_output_mode"] == "GuidedJson":
                 # Complete native argument bodies are input even when guided mode
                 # suppresses them. Goldens alone cannot detect a changed stress value.
-                suppressed = [call for call in _native_input_calls(family, case["input"]) if call["arguments"]]
+                if scenario == "gemma4_guided_response_extra_body_opener":
+                    assert family == "gemma4"
+                    assert init["starting_state"] == "Response"
+                    assert case["input"] == "é call:get_weather{" + G.GUIDED_ONE_CALL
+                    assert events == [
+                        {"kind": "text", "text": "é "},
+                        {"kind": "tool_call", "name": "get_weather", "arguments": {"city": "Paris"}},
+                    ]
+                else:
+                    suppressed = [call for call in _native_input_calls(family, case["input"]) if call["arguments"]]
                 if scenario == "guided_json_reasoning_markers_inside_native_parameter":
                     opener, closer, _, _ = control_tokens(family)
                     assert suppressed == [{"kind": "tool_call", "name": "f", "arguments": {"x": opener + "quoted" + closer}}], (
