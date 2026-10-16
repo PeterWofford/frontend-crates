@@ -536,6 +536,8 @@ def test_response_state_uses_only_control_marker_contracts() -> None:
             extra.add("guided_response_rejected_header_quote_ownership")
         if family == "deepseek_v41":
             extra.add("prefilled_response_guided_pending_invoke_header")
+        if family == "gemma4":
+            extra.add("gemma4_guided_response_extra_body_opener")
         if family == "qwen3":
             extra.update({
                 "guided_json_native_parameter_object_before_payload",
@@ -568,6 +570,8 @@ def test_response_state_uses_only_control_marker_contracts() -> None:
                 marker = G._NATIVE_QUOTED_CONTROL.get(family, control_tokens(family)[2])
             elif scenario == "guided_response_rejected_header_quote_ownership":
                 marker = '<｜DSML｜invoke'
+            elif scenario == "gemma4_guided_response_extra_body_opener":
+                marker = "call:get_weather{"
             elif family == "muse_glimmer":
                 marker = "<|message|>"
             else:
