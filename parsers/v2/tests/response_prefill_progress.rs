@@ -38,6 +38,150 @@ fn parts(named: bool) -> (&'static str, &'static str) {
 }
 
 #[test]
+fn response_prefill_native_body_cannot_become_the_guided_payload() {
+    for (family, header, trailer, literal_prefix) in [
+        (
+            "gpt_oss",
+            "<|start|>assistant<|channel|>commentary to=functions.ignored <|constrain|>json<|message|>",
+            "<|call|>",
+            "I mean <|start|>assistant<|channel|>analysis<|message|>self literal<|end|>",
+        ),
+        (
+            "gpt_oss",
+            "<|start|>assistant to=functions.ignored<|channel|>commentary<|message|>",
+            "<|call|>",
+            "I mean <|start|>assistant<|channel|>analysis<|message|>self literal<|end|>",
+        ),
+        (
+            "kimi_k3",
+            "<|open|>tools<|sep|><|open|>call tool=\"ignored\" index=\"1\"<|sep|>",
+            "<|close|>call<|sep|><|close|>tools<|sep|>",
+            "I mean <|open|>think<|sep|>self literal<|close|>think<|sep|>",
+        ),
+    ] {
+        for array in [false, true] {
+            let value = if array {
+                serde_json::json!([{"name":"get_weather","arguments":{"city":"Rome"}}])
+            } else {
+                serde_json::json!({"city":"Rome"})
+            };
+            let body = if family == "gpt_oss" {
+                serde_json::json!({"x":value}).to_string()
+            } else {
+                format!(
+                    "<|open|>argument key=\"x\" type=\"{}\"<|sep|>{value}<|close|>argument<|sep|>",
+                    if array { "array" } else { "object" }
+                )
+            };
+            let quoted_prefix = format!("\"{literal_prefix}\" then prose ");
+            for prefix in ["", literal_prefix, &quoted_prefix] {
+                for named in [false, true] {
+                    let payload = if named {
+                        r#"{"city":"Paris"}"#
+                    } else {
+                        r#"[{"name":"get_weather","arguments":{"city":"Paris"}}]"#
+                    };
+                    let input = format!("{prefix}{header}{body}{trailer}{payload}");
+                    let mut expected = Vec::new();
+                    if !prefix.is_empty() {
+                        expected.push(UnifiedEvent::Text {
+                            text: prefix.into(),
+                        });
+                    }
+                    expected.push(UnifiedEvent::ToolCall {
+                        name: "get_weather".into(),
+                        arguments: serde_json::json!({"city":"Paris"}),
+                    });
+                    for policy in [
+                        InvalidGuidedPayloadPolicy::Reject,
+                        InvalidGuidedPayloadPolicy::RecoverAsText,
+                        InvalidGuidedPayloadPolicy::StreamBestEffort,
+                    ] {
+                        let mut parser = create_unified_parser_for_family(family, &[]).unwrap();
+                        let init = UnifiedParserInit {
+                            starting_state: UnifiedParserStartingState::Response,
+                            tool_output_mode: UnifiedToolOutputMode::GuidedJson {
+                                named_tool: named.then(|| "get_weather".into()),
+                            },
+                            invalid_guided_payload: policy,
+                            ..Default::default()
+                        };
+                        if policy == InvalidGuidedPayloadPolicy::Reject {
+                            let incomplete = format!("{prefix}{header}{body}{trailer}");
+                            for split in incomplete
+                                .char_indices()
+                                .map(|(at, _)| at)
+                                .chain([incomplete.len()])
+                            {
+                                parser.reset();
+                                parser.initialize_request(init.clone()).unwrap();
+                                assert!(parser.push(&incomplete[..split]).unwrap().is_empty());
+                                assert!(parser.push(&incomplete[split..]).unwrap().is_empty());
+                                assert!(parser.finish().is_err());
+                            }
+                        }
+                        for split in input.char_indices().map(|(at, _)| at).chain([input.len()]) {
+                            parser.reset();
+                            parser.initialize_request(init.clone()).unwrap();
+                            let mut events = parser.push(&input[..split]).unwrap();
+                            events.extend(parser.push(&input[split..]).unwrap());
+                            events.extend(parser.finish().unwrap().events);
+                            assert_eq!(
+                                assemble(&events),
+                                expected,
+                                "{family} {policy:?} named={named} array={array} prefix={} split={split}",
+                                !prefix.is_empty()
+                            );
+                        }
+                        parser.reset();
+                        parser.initialize_request(init.clone()).unwrap();
+                        let mut events = Vec::new();
+                        for character in input.chars() {
+                            events.extend(parser.push(&character.to_string()).unwrap());
+                        }
+                        events.extend(parser.finish().unwrap().events);
+                        assert_eq!(
+                            assemble(&events),
+                            expected,
+                            "{family} {policy:?} named={named} array={array} character chunks"
+                        );
+                        if family == "gpt_oss" {
+                            let ids =
+                                dynamo_parsers_v2::tool_calling::harmony::encode_harmony(&input)
+                                    .unwrap();
+                            for split in 0..=ids.len() {
+                                parser.reset();
+                                parser.initialize_request(init.clone()).unwrap();
+                                let mut events = parser.push_tokens(&ids[..split]).unwrap();
+                                events.extend(parser.push_tokens(&ids[split..]).unwrap());
+                                events.extend(parser.finish().unwrap().events);
+                                assert_eq!(
+                                    assemble(&events),
+                                    expected,
+                                    "{family} {policy:?} named={named} array={array} token split={split}"
+                                );
+                            }
+                            parser.reset();
+                            parser.initialize_request(init).unwrap();
+                            let mut events = Vec::new();
+                            for id in ids.chunks(1) {
+                                events.extend(parser.push_tokens(id).unwrap());
+                            }
+                            events.extend(parser.finish().unwrap().events);
+                            assert_eq!(
+                                assemble(&events),
+                                expected,
+                                "{family} {policy:?} named={named} array={array} single tokens"
+                            );
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+#[test]
 fn response_prefill_streams_long_argument_after_literal_marker() {
     // Corpus Init cannot select StreamBestEffort or assert pre-close deltas, so
     // the live request policy and its progress deadline need a Rust regression.

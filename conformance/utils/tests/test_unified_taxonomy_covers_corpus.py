@@ -478,6 +478,22 @@ def test_deepseek_v41_empty_calls_envelope_keeps_4b():
     }
 
 
+def test_gpt_oss_response_applicability_is_not_derived_from_the_denylist() -> None:
+    scenarios = {
+        "native_unmatched_quote_then_call",
+        "guided_json_orphan_tool_close_before_payload",
+        "guided_response_quoted_control_braces_required",
+        "guided_response_quoted_control_braces_named",
+        "guided_json_native_parameter_object_before_payload",
+        "guided_json_native_parameter_array_before_payload",
+    }
+    cases = build_cases("gpt_oss")
+    for scenario in scenarios:
+        case = cases[f"UNIFIED.{scenario}.gpt_oss"]
+        assert any(event["kind"] == "tool_call" for event in case["golden"]), scenario
+        assert scenario not in G.HARMONY_INAPPLICABLE_EDGE_CASES
+
+
 def test_response_state_uses_only_control_marker_contracts() -> None:
     response_scenarios = {
         "prefilled_response_reasoning_markers_literal",
@@ -491,6 +507,8 @@ def test_response_state_uses_only_control_marker_contracts() -> None:
         "native_unmatched_quote_then_call",
         "guided_response_quoted_control_braces_named",
         "guided_response_quoted_control_braces_required",
+        "guided_json_native_parameter_object_before_payload",
+        "guided_json_native_parameter_array_before_payload",
     }
     for family in NATIVE_FAMILIES:
         cases = build_cases(family)
@@ -835,13 +853,13 @@ def test_unified_case_counts_match_the_generator():
     denominator survived in the prose before.
     """
     family_specific = {
-        "deepseek_v4": 126,
-        "deepseek_v41": 123,
-        "gemma4": 119,
-        "glm47": 117,
-        "gpt_oss": 106,
-        "kimi_k2": 117,
-        "kimi_k3": 124,
+        "deepseek_v4": 128,
+        "deepseek_v41": 125,
+        "gemma4": 121,
+        "glm47": 119,
+        "gpt_oss": 117,
+        "kimi_k2": 119,
+        "kimi_k3": 126,
         "muse_glimmer": 126,
         "qwen3": 122,
     }
@@ -856,7 +874,7 @@ def test_deferred_case_ids_are_not_in_the_active_taxonomy():
     deferred = {"1-2", "5-5", "6-2", "32-6", "50-1", "50-2"} | {
         f"31-{number}" for number in range(31, 41)
     }
-    assert len(UNIFIED_TAX) == 165 + len(CONFORMANCE_CASES)
+    assert len(UNIFIED_TAX) == 170 + len(CONFORMANCE_CASES)
     assert not {f"UNIFIED.{case_id}" for case_id in deferred} & {
         numbered_id(scenario) for scenario in UNIFIED_TAX
     }
@@ -1155,6 +1173,8 @@ def _family_value(scenario, family):
         "guided_json_native_parameter_object_before_payload",
         "guided_json_native_parameter_array_before_payload",
     }:
+        if scenario.startswith("guided_json_native_parameter_") and family not in {"qwen3", "muse_glimmer"}:
+            return f"I mean {reason_open}self literal{reason_close}"
         suffix = " then a call" if scenario == "prefilled_response_reasoning_markers_literal" else ""
         if family == "gpt_oss" and scenario == "prefilled_response_reasoning_markers_literal":
             return "<think>literal</think> then a call"
@@ -1563,6 +1583,7 @@ def _assert_input_carries_events(family: str, scenario: str, case: dict) -> None
             "guided_json_bare_tool_header_recovers_inside_a_thought",
             "deepseek_v4_guided_reasoning_opener_inside_native_body",
             "kimi_k3_elided_think_close_to_response",
+            "gpt_oss_interrupted_reasoning_then_response",
         }
         if scenario not in unclosed:
             assert control_tokens(family)[1] in raw, (family, scenario, "missing reasoning closer")

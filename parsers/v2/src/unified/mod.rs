@@ -3707,6 +3707,26 @@ impl GuidedState {
         .min()
     }
 
+    fn response_prefix_holdback(&self, text: &str, flush: bool) -> usize {
+        guided_holdback_len_for_grammar(
+            text,
+            &[],
+            &self.grammar.control_markers,
+            &self.grammar,
+            self.start_label(),
+            self.invoke_boundary
+                .as_ref()
+                .is_some_and(|boundary| boundary.owns_guided_prefix()),
+            flush,
+        )
+        .max(self.reasoning.holdback(text, self.channel_state()))
+        .max(if let GuidedReasoning::Channel(channel) = self.reasoning {
+            marker_prefix_suffix_len(text, channel.competitors.iter().copied())
+        } else {
+            0
+        })
+    }
+
     /// Whether the bytes at `from` reach the guided payload through nothing but
     /// recognized control markup.
     ///
@@ -4328,69 +4348,130 @@ impl GuidedState {
                     // Whitespace stays buffered because it may still be the leading
                     // structural whitespace of a payload split across chunks.
                     if !self.reasoning_enabled && !self.payload_emitted {
-                        // Native parameter values can themselves be valid guided
-                        // JSON. Resolve their envelope before the response probe
-                        // is allowed to select a payload from those bytes.
-                        if self.invoke_boundary.is_none()
-                            && (self.grammar.has_prefix_invoke_start()
-                                || self.grammar.native_body_start.is_some())
-                            && (!flush || self.json.is_empty())
-                        {
-                            if !self.json.is_empty() {
+                        if self.reasoning.preserves_response_markers() {
+                            if self.response_prefill_after_marker && self.json.is_empty() {
+                                let leading = self.input.len() - self.input.trim_start().len();
+                                if leading > 0 {
+                                    self.input.drain(..leading);
+                                    self.response_prefill_probe.reset();
+                                    self.reset_invoke_candidate();
+                                }
+                                if self.input.is_empty() && !flush {
+                                    break;
+                                }
+                                self.response_prefill_after_marker = false;
+                            }
+                            // Resolve native ownership before the JSON probe can select
+                            // an object or array belonging to a native tool message.
+                            if (!flush || self.json.is_empty())
+                                && (self.invoke_boundary.is_some()
+                                    || self.grammar.has_prefix_invoke_start()
+                                    || self.grammar.native_body_start.is_some())
+                            {
                                 let mut input = std::mem::take(&mut self.json);
                                 input.push_str(&self.input);
-                                self.input = input;
-                            }
-                            if let Some((at, invoke_start)) =
-                                self.grammar.find_invoke_start(&self.input)
-                                && self
-                                    .input
-                                    .find(['{', '['])
-                                    .is_none_or(|payload| at < payload)
-                                && self.native_header.append(
-                                    &self.input[at..],
-                                    invoke_start,
-                                    at,
-                                    self.grammar
-                                        .native_body_start
-                                        .as_ref()
-                                        .map(|(marker, _)| marker.as_str()),
-                                ) == Some(true)
-                            {
-                                self.native_header.begin_body(
+                                let limit = input.find(['{', '[']);
+                                let marker = self.control_marker_at(
+                                    &input,
+                                    self.input_previous,
+                                    limit,
                                     &[],
-                                    self.grammar
-                                        .native_body_start
-                                        .as_ref()
-                                        .is_some_and(|(_, json)| *json),
-                                );
-                                if let Some(len) = self.native_header.body_end(
-                                    &self.input[at..],
-                                    &self.grammar.invoke_end,
                                     flush,
-                                ) {
+                                );
+                                self.input = input;
+                                if let Some((at, len)) = marker {
                                     let end = at + len;
-                                    if self.native_header.waits_for_following_content(
-                                        &self.input[at..],
-                                        len,
-                                        flush,
-                                    ) {
-                                        break;
+                                    let prefix = self.input[..at].to_string();
+                                    if self.invalid_payload == InvalidGuidedPayloadPolicy::Reject {
+                                        if !self.response_prefill_prose.is_empty()
+                                            || self.response_prefill_text_emitted
+                                            || !prefix.trim().is_empty()
+                                        {
+                                            self.response_prefill_prose.push_str(&prefix);
+                                        }
+                                    } else {
+                                        self.push_response_prose(&mut output, &prefix);
                                     }
-                                    let whitespace = self.input[end..].len()
-                                        - self.input[end..].trim_start().len();
                                     self.prose.consume_recovery(
                                         &self.input[at..end],
                                         self.grammar.invoke_start_for(&self.input[at..end]),
                                     );
-                                    self.input.drain(at..end + whitespace);
+                                    self.input.drain(..end);
                                     self.stripped_markup = true;
+                                    self.response_prefill_after_marker = true;
                                     self.reset_invoke_candidate();
                                     self.response_prefill_probe.reset();
                                     continue;
                                 }
-                                self.native_header.holdback_len = self.input.len() - at;
-                                break;
+                                if self.invoke_holdback_start(&self.input).is_some() {
+                                    break;
+                                }
+                            }
+                        } else {
+                            // Native parameter values can themselves be valid guided
+                            // JSON. Resolve their envelope before the response probe
+                            // is allowed to select a payload from those bytes.
+                            if self.invoke_boundary.is_none()
+                                && (self.grammar.has_prefix_invoke_start()
+                                    || self.grammar.native_body_start.is_some())
+                                && (!flush || self.json.is_empty())
+                            {
+                                if !self.json.is_empty() {
+                                    let mut input = std::mem::take(&mut self.json);
+                                    input.push_str(&self.input);
+                                    self.input = input;
+                                }
+                                if let Some((at, invoke_start)) =
+                                    self.grammar.find_invoke_start(&self.input)
+                                    && self
+                                        .input
+                                        .find(['{', '['])
+                                        .is_none_or(|payload| at < payload)
+                                    && self.native_header.append(
+                                        &self.input[at..],
+                                        invoke_start,
+                                        at,
+                                        self.grammar
+                                            .native_body_start
+                                            .as_ref()
+                                            .map(|(marker, _)| marker.as_str()),
+                                    ) == Some(true)
+                                {
+                                    self.native_header.begin_body(
+                                        &[],
+                                        self.grammar
+                                            .native_body_start
+                                            .as_ref()
+                                            .is_some_and(|(_, json)| *json),
+                                    );
+                                    if let Some(len) = self.native_header.body_end(
+                                        &self.input[at..],
+                                        &self.grammar.invoke_end,
+                                        flush,
+                                    ) {
+                                        let end = at + len;
+                                        if self.native_header.waits_for_following_content(
+                                            &self.input[at..],
+                                            len,
+                                            flush,
+                                        ) {
+                                            break;
+                                        }
+                                        let whitespace = self.input[end..].len()
+                                            - self.input[end..].trim_start().len();
+                                        self.prose.consume_recovery(
+                                            &self.input[at..end],
+                                            self.grammar.invoke_start_for(&self.input[at..end]),
+                                        );
+                                        self.input.drain(at..end + whitespace);
+                                        self.stripped_markup = true;
+                                        self.reset_invoke_candidate();
+                                        self.response_prefill_probe.reset();
+                                        continue;
+                                    }
+                                    self.native_header.holdback_len = self.input.len() - at;
+                                    break;
+                                }
                             }
                         }
                         if self.reasoning.preserves_response_markers()
@@ -4411,6 +4492,13 @@ impl GuidedState {
                                 continue;
                             }
                             let safe_len = self.response_prefill_probe.safe_prefix_len(&combined);
+                            let safe_len = if flush {
+                                safe_len
+                            } else {
+                                safe_len.saturating_sub(
+                                    self.response_prefix_holdback(&combined[..safe_len], flush),
+                                )
+                            };
                             if safe_len > 0 {
                                 self.push_response_prose(&mut output, &combined[..safe_len]);
                                 self.response_prefill_probe.discard_prefix(safe_len);
@@ -4485,31 +4573,7 @@ impl GuidedState {
                                 self.response_prefill_after_marker = false;
                             }
                             let safe_len = self.response_prefill_probe.safe_prefix_len(&combined);
-                            let keep = guided_holdback_len_for_grammar(
-                                &combined[..safe_len],
-                                &[],
-                                &self.grammar.control_markers,
-                                &self.grammar,
-                                self.start_label(),
-                                self.invoke_boundary
-                                    .as_ref()
-                                    .is_some_and(|boundary| boundary.owns_guided_prefix()),
-                                flush,
-                            )
-                            .max(
-                                self.reasoning
-                                    .holdback(&combined[..safe_len], self.channel_state()),
-                            )
-                            .max(
-                                if let GuidedReasoning::Channel(channel) = self.reasoning {
-                                    marker_prefix_suffix_len(
-                                        &combined[..safe_len],
-                                        channel.competitors.iter().copied(),
-                                    )
-                                } else {
-                                    0
-                                },
-                            );
+                            let keep = self.response_prefix_holdback(&combined[..safe_len], flush);
                             let response_marker =
                                 self.reasoning.response_marker_at(&combined[..safe_len]);
                             let control_marker = self.control_marker_at(

@@ -179,6 +179,11 @@ UNIFIED_TAX = {
     "gpt_oss_control_marker_inside_argument_string": ("gpt_oss", "3"),
     "gpt_oss_truncated_tool_resynchronizes_at_next_message": ("gpt_oss", "4"),
     "gpt_oss_truncated_tool_at_eof_is_dropped": ("gpt_oss", "5"),
+    "gpt_oss_interrupted_reasoning_then_tool": ("gpt_oss", "8"),
+    "gpt_oss_interrupted_reasoning_then_tool_with_text": ("gpt_oss", "9"),
+    "gpt_oss_invalid_tool_body_then_empty_call": ("gpt_oss", "10"),
+    "gpt_oss_invalid_tool_body_then_valid_call": ("gpt_oss", "11"),
+    "gpt_oss_interrupted_reasoning_then_response": ("gpt_oss", "12"),
 
     # Group 40 — Prefilled reasoning, happy
     "prefilled_reasoning_with_tool": (40, "1"), "prefilled_reasoning_with_guided_json": (40, "2"),

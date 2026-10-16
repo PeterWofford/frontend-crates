@@ -1890,26 +1890,56 @@ EDGE += [
      })),
 ]
 
+def _guided_response_markup(fam, recipient, after_payload=False):
+    """A response-state control marker followed by (or following) guided JSON.
+
+    `to=…<|message|>` is the control marker that can be quoted for muse. Fixed
+    marker-pair grammars cannot quote an opener without a response-state contract, so
+    their family-equivalent input is their own reasoning envelope while Response is
+    prefilled. Return the expected visible text separately because muse strips its
+    special-token framing while the marker-pair families preserve their literal bytes.
+    """
+    if fam == "muse_glimmer":
+        text = f"I mean to={recipient}literal"
+        markup = f"I mean to={recipient}<|message|>literal<|eom|>"
+    else:
+        reason_open, reason_close, _tool_open, _tool_close = control_tokens(fam)
+        text = f"I mean {reason_open}{recipient} literal{reason_close}"
+        markup = text
+    return ((f"{GUIDED_ONE_CALL}{markup}" if after_payload else f"{markup}{GUIDED_ONE_CALL}"), text)
+
+
+
 for _shape, _body in (
     ("object", '{"city":"Rome"}'),
     ("array", '[{"name":"get_weather","arguments":{"city":"Rome"}}]'),
 ):
+    _native_json_inputs = {
+        family: (stimulus + opener + _body + closer + GUIDED_ONE_CALL, GUIDED_UNSUPPORTED, M, visible)
+        for family, stimulus, visible, opener, closer in (
+            ("qwen3", "<think>literal</think>", "<think>literal</think>", "<function=f><parameter=x>", "</parameter></function>"),
+            ("muse_glimmer", "to=self<|message|>literal<|eom|>", "to=selfliteral", '<atem:invoke name="f"><atem:parameter name="x">', "</atem:parameter></atem:invoke>"),
+        )
+    }
+    for _family in FAMILIES:
+        if _family in _native_json_inputs:
+            continue
+        _prefix, _visible = _guided_response_markup(_family, "self")
+        _native_json_inputs[_family] = (
+            _prefix.removesuffix(GUIDED_ONE_CALL)
+            + r_tool_arguments(_family, "f", {"x": json.loads(_body)}, 0)
+            + GUIDED_ONE_CALL,
+            GUIDED_UNSUPPORTED, M, _visible,
+        )
     EDGE.append((
         f"guided_json_native_parameter_{_shape}_before_payload",
-        f"Qwen and Muse Response-prefilled guided output quotes a reasoning marker, then contains a valid JSON {_shape} inside a native parameter, followed by the actual guided call. "
-        "Response keeps the quoted reasoning content visible; starting_state=None would route it to reasoning. "
-        "The Response payload search must skip braces and brackets owned by the native invocation. "
-        "Only the following Paris call dispatches; selecting the native Rome value is incorrect, and no native body reaches visible text.",
+        f"Response-prefilled guided output contains literal reasoning markup, then a native invocation with a JSON {_shape} argument and the real guided call. "
+        "The native body remains owned by its invocation across every chunk boundary. "
+        "Only the following Paris call dispatches; the native Rome value cannot become a guided payload or visible text.",
         ["I3", "I7"],
         [{"kind": "text", "text": None}, {"kind": "tool_call", "name": "get_weather", "arguments": {"city": "Paris"}}],
         {"starting_state": "Response", "tool_output_mode": "GuidedJson", "named_tool": None},
-        OnlyFamilies({
-            family: (stimulus + opener + _body + closer + GUIDED_ONE_CALL, GUIDED_UNSUPPORTED, M, visible)
-            for family, stimulus, visible, opener, closer in (
-                ("qwen3", "<think>literal</think>", "<think>literal</think>", "<function=f><parameter=x>", "</parameter></function>"),
-                ("muse_glimmer", "to=self<|message|>literal<|eom|>", "to=selfliteral", '<atem:invoke name="f"><atem:parameter name="x">', "</atem:parameter></atem:invoke>"),
-            )
-        }),
+        _native_json_inputs,
     ))
 
 EDGE += [
@@ -2084,12 +2114,8 @@ HARMONY_INAPPLICABLE_EDGE_CASES = {
     "native_single_quote_contraction_reasoning",
     "native_quoted_incomplete_header",
     "native_quoted_control_then_call",
-    "native_unmatched_quote_then_call",
-    "guided_response_quoted_control_braces_named",
-    "guided_response_quoted_control_braces_required",
     # Harmony has one call terminator, not distinct tool-open and tool-close tokens.
     "guided_json_tool_open_before_payload",
-    "guided_json_orphan_tool_close_before_payload",
     # These rely on another grammar's separate invoke opener or parameter brackets.
     "guided_json_schema_error_not_a_call_bare_opener",
     "guided_json_gt_in_argument_bare_opener",
@@ -2101,6 +2127,64 @@ HARMONY_INAPPLICABLE_EDGE_CASES = {
 GPT_OSS_LEGACY_NON_HARMONY_SCENARIOS = {
     "tool_block_never_closed_then_text",
 }
+
+
+for _with_text in (False, True):
+    _before = "I should check. "
+    _after = " now answer"
+    _events = [
+        {"kind": "reasoning", "text": _before},
+        {"kind": "tool_call", "name": "get_weather", "arguments": {"city": "Paris"}},
+        {"kind": "reasoning", "text": _after},
+    ]
+    _input = (
+        r_reason("gpt_oss", _before).removesuffix(control_tokens("gpt_oss")[1])
+        + r_tool("gpt_oss", "get_weather", "city", "Paris", 0)
+        + r_reason("gpt_oss", _after)
+    )
+    if _with_text:
+        _input = r_text("gpt_oss", "Sure. ") + _input + r_text("gpt_oss", " Here you go.")
+        _events = [{"kind": "text", "text": "Sure. "}, *_events,
+                   {"kind": "text", "text": " Here you go."}]
+    EDGE.append((
+        "gpt_oss_interrupted_reasoning_then_tool" + ("_with_text" if _with_text else ""),
+        "A Harmony tool message interrupts analysis without its message-end token. "
+        "The tool call survives, and a later explicit analysis header resumes reasoning. "
+        + ("Visible messages before and after retain their order." if _with_text else "No implicit reasoning stack is assumed."),
+        ["I3", "I6"], _events,
+        {"starting_state": "None", "tool_output_mode": "Native", "named_tool": None},
+        OnlyFamilies({"gpt_oss": (_input, D("UNSUPPORTED", VLLM_UNCAPTURABLE["gpt_oss"]), M)}),
+    ))
+
+for _empty, _bad_body in ((True, "not-json"), (False, '{"city":')):
+    _arguments = {} if _empty else {"city": "Paris"}
+    _header = r_tool_arguments("gpt_oss", "bad", {}, 0).split("{", 1)[0]
+    EDGE.append((
+        "gpt_oss_invalid_tool_body_then_" + ("empty_call" if _empty else "valid_call"),
+        "A completed Harmony tool message contains invalid JSON. Its handoff closes the malformed body; "
+        "drop that call and preserve the following call's name and " + ("empty arguments." if _empty else "arguments."),
+        ["P2", "I7"],
+        [{"kind": "tool_call", "name": "get_weather", "arguments": _arguments}],
+        {"starting_state": "None", "tool_output_mode": "Native", "named_tool": None},
+        OnlyFamilies({"gpt_oss": (
+            _header + _bad_body + control_tokens("gpt_oss")[3]
+            + r_tool_arguments("gpt_oss", "get_weather", _arguments, 0),
+            D("UNSUPPORTED", VLLM_UNCAPTURABLE["gpt_oss"]), M,
+        )}),
+    ))
+
+EDGE.append((
+    "gpt_oss_interrupted_reasoning_then_response",
+    "A final Harmony message interrupts analysis without a message-end token. "
+    "The preceding reasoning remains withheld, and the explicit final header routes the answer to visible text.",
+    ["I1", "I3"],
+    [{"kind": "reasoning", "text": "checking"}, {"kind": "text", "text": "done"}],
+    {"starting_state": "None", "tool_output_mode": "Native", "named_tool": None},
+    OnlyFamilies({"gpt_oss": (
+        r_reason("gpt_oss", "checking").removesuffix(control_tokens("gpt_oss")[1])
+        + r_text("gpt_oss", "done"), D("UNSUPPORTED", VLLM_UNCAPTURABLE["gpt_oss"]), M,
+    )}),
+))
 
 
 EDGE += [
@@ -2161,24 +2245,6 @@ _RECOVERY_INSIDE_THOUGHT = (
     "A bare `to=NAME` header inside an OPEN thought, leading into the guided payload — the missing-terminator recovery boundary, with no framing on the header because the prompt consumed the turn's opening framing. The contrast with the quoted cases is the point: the same bare shape is structural here and prose there, decided by scope, not by whether a header has been seen before. A reader that closes its latch on the turn's first header demotes this one and leaks `to=NAME` into the reasoning.",
 )
 
-
-def _guided_response_markup(fam, recipient, after_payload=False):
-    """A response-state control marker followed by (or following) guided JSON.
-
-    `to=…<|message|>` is the control marker that can be quoted for muse. Fixed
-    marker-pair grammars cannot quote an opener without a response-state contract, so
-    their family-equivalent input is their own reasoning envelope while Response is
-    prefilled. Return the expected visible text separately because muse strips its
-    special-token framing while the marker-pair families preserve their literal bytes.
-    """
-    if fam == "muse_glimmer":
-        text = f"I mean to={recipient}literal"
-        markup = f"I mean to={recipient}<|message|>literal<|eom|>"
-    else:
-        reason_open, reason_close, _tool_open, _tool_close = control_tokens(fam)
-        text = f"I mean {reason_open}{recipient} literal{reason_close}"
-        markup = text
-    return ((f"{GUIDED_ONE_CALL}{markup}" if after_payload else f"{markup}{GUIDED_ONE_CALL}"), text)
 
 
 def _guided_response_markup_cases(recipient, after_payload=False):
@@ -2691,6 +2757,7 @@ EDGE.append((
 
 
 _NATIVE_QUOTED_CONTROL = {
+    "gpt_oss": r_tool("gpt_oss", "get_weather", "city", "Paris", 0).split("{", 1)[0],
     "deepseek_v4": "<｜DSML｜tool_calls>",
     "deepseek_v41": "<｜DSML｜ calls>",
     "gemma4": "<|tool_call>",
