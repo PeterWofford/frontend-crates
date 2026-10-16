@@ -2962,27 +2962,10 @@ def _unified_tab_model(artifact_root: Path, hrefs: dict) -> dict | None:
                 "duplicate_of": None,
                 "cmp": cmp, "facts": [], "tooltip": tooltip,
             }
-        rows.append({"family": f, "model_label": f, "model_label_html": f, "section": None,
+        label = _TOOL_CALLING_LABEL_OVERRIDES.get(f, f)
+        rows.append({"family": f, "model_label": label,
+                     "model_label_html": _model_label_html(label), "section": None,
                      "parser": None, "cells": cells})
-
-    # Unified rows are built from a different corpus loader than the legacy tables,
-    # so apply the shared featured order and label mapping after constructing cells.
-    display_families = {(family, ""): {} for family in families}
-    top_n, others = _build_display_groups(display_families, {})
-    rows_by_family = {row["family"]: row for row in rows}
-    display_rows = []
-    for section, group in (("Top-N models", top_n), ("Others", others)):
-        if not group:
-            continue
-        display_rows.append({"family": None, "model_label": section,
-                             "model_label_html": "", "section": section,
-                             "parser": None, "cells": {}})
-        for label, family in group:
-            row = rows_by_family[family]
-            row["model_label"] = label
-            row["model_label_html"] = _model_label_html(label)
-            display_rows.append(row)
-    rows = display_rows
 
     for column in columns:
         # Include reconstructed missing captures; their native prefills can differ.
