@@ -936,48 +936,22 @@ def _scenario_of(cid: str, fam: str) -> str:
     return cid
 
 
-def _packed_layer(root: Path, directory: str, fam: str, field_map, scenarios):
-    """Case records from a PACKAGED shard, keyed by scenario.
-
-    The shards are tracked LFS artifacts, so this layer exists in a clean checkout. They
-    are the committed form of the exploded loose tree, which means comparing against them
-    checks the bytes that actually ship.
-    """
-    import yaml
-
-    out = {}
-    for path in sorted((root / directory / fam).glob("*.yaml")):
-        doc = yaml.safe_load(path.read_bytes()) or {}
-        for cid, case in (doc.get("cases") or {}).items():
-            scenario = case.get("scenario") or scenarios.get(cid)
-            if scenario is None:
-                continue
-            out.setdefault(scenario, {}).update(
-                {want: case[have] for want, have in field_map.items() if have in case}
-            )
-    return out
+def _packaged_cases(fam: str):
+    """Read the committed input/GOLDEN shard directly, without materializing history."""
+    path = UTILS.parent / "fixtures-unified-v2" / "families" / fam / "inputs_and_golden.yaml"
+    document = yaml.safe_load(path.read_bytes()) or {}
+    return {
+        case["scenario"]: {
+            "input": case["request"]["input"],
+            "init": case["request"]["init"],
+            "golden": case["golden"]["assembled"],
+        }
+        for case in (document.get("cases") or {}).values()
+        if case.get("lifecycle") == "active" and case.get("scenario")
+    }
 
 
-def _materialized_unified_root(tmp_path: Path, store) -> Path:
-    root = tmp_path / "unified"
-    unified_history.materialize_store(UTILS.parent / "fixtures-unified-v2", root, store=store)
-    return root
-
-
-def _taxonomy_scenarios(fam: str, store):
-    """Taxonomy id (`UNIFIED.34-guided_json_bare_tool_header_recovers_inside_a_thought`) -> scenario slug, from packaged input layers.
-
-    The golden shard keys by taxonomy id and carries no scenario field, so the mapping
-    comes from the one shard holding both. A key JOIN, not a value normalization.
-    """
-    out = {}
-    for case in store.families[fam].cases.values():
-        if case["scenario"] and case["display_id"]:
-            out[case["display_id"]] = case["scenario"]
-    return out
-
-
-def test_every_case_triple_is_identical_at_every_layer(tmp_path):
+def test_every_case_triple_is_identical_at_every_layer():
     """One corpus, every tracked representation, zero drift, across all three fields.
 
     Compares `(input, init, golden)` for every case of every family across the generator's
@@ -997,23 +971,18 @@ def test_every_case_triple_is_identical_at_every_layer(tmp_path):
     wrong.
     """
     checked = 0
-    store = unified_history.load_store(UTILS.parent / "fixtures-unified-v2")
-    materialized = _materialized_unified_root(tmp_path, store)
+    expected_count = 0
     for fam in FAMILIES:
         spec = _emitted_spec(fam)
-        scenarios = _taxonomy_scenarios(fam, store)
-        packed_in = _packed_layer(materialized, "inputs", fam, {"input": "input", "init": "init"}, scenarios)
-        packed_gold = _packed_layer(materialized, "golden", fam, {"golden": "assembled"}, scenarios)
+        packaged = _packaged_cases(fam)
+        expected_count += len(spec)
 
         for cid, case in build_cases(fam).items():
             scenario = _scenario_of(cid, fam)
             want = {k: case[k] for k in ("input", "init", "golden")}
             layers = {
                 "emitted golden spec": {k: spec[cid][k] for k in want if k in spec[cid]},
-                "packaged shard": {
-                    **packed_in.get(scenario, {}),
-                    **packed_gold.get(scenario, {}),
-                },
+                "packaged shard": packaged.get(scenario, {}),
             }
             for layer, got in layers.items():
                 for field, expected in want.items():
@@ -1024,9 +993,7 @@ def test_every_case_triple_is_identical_at_every_layer(tmp_path):
                         f"  {layer}: {got[field]!r}"
                     )
             checked += 1
-    assert checked == sum(len(build_cases(f)) for f in FAMILIES), (
-        "the gate must cover every generated case"
-    )
+    assert checked == expected_count, "the gate must cover every generated case"
 
 
 def _assert_retained_capture_coverage(captured, expected):

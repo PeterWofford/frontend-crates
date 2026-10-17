@@ -264,7 +264,7 @@ def test_case_schema_extraction_omits_absent_and_shared_defaults():
     assert table._unified_case_schemas({"request": {"tools": [{"name": "search"}]}}, "[]") is None
 
 
-def test_unified_schema_defaults_are_loaded_once(monkeypatch):
+def test_unified_schema_defaults_are_loaded_once(monkeypatch, tmp_path):
     calls = []
     original = table.unified_tools
 
@@ -273,8 +273,19 @@ def test_unified_schema_defaults_are_loaded_once(monkeypatch):
         return original()
 
     monkeypatch.setattr(table, "unified_tools", tools)
-    result = table._load_unified_fixtures(_cache_root() / "unified")
+    input_dir = tmp_path / "inputs" / "deepseek_v4"
+    input_dir.mkdir(parents=True)
+    (input_dir / "cases.yaml").write_text(yaml.safe_dump({
+        "family": "deepseek_v4",
+        "mode": "unified",
+        "cases": {
+            "first": {"scenario": "first", "input": "first"},
+            "second": {"scenario": "second", "input": "second"},
+        },
+    }))
+    result = table._load_unified_fixtures(tmp_path)
     assert result is not None
+    assert len(result[0]) == 2
     assert len(calls) == 1
 
 
