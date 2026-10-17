@@ -535,6 +535,7 @@ def test_narrow_picker_opens_the_normal_version_select(matrix_driver, rendered_p
 @pytest.mark.parametrize("close_over_control", [False, True])
 def test_segments_click_only_popup_keyboard_and_immediate_selection(matrix_driver, rendered_page, close_over_control):
     d = matrix_driver
+    d.set_window_size(2400, 1200)
     load(d, rendered_page)
     cell = d.find_element(By.CSS_SELECTOR, "#tab-unified td.cell[data-cmp][data-ttip-id]")
     assert len(cell.find_elements(By.CSS_SELECTOR, ".matrix-status")) == 1
