@@ -1290,7 +1290,7 @@ def test_v2_no_verbose_todo_baked_in_cells(model_v2):
 
 
 @pytest.mark.parametrize("family", [
-    "deepseek_v4", "deepseek_v41", "gemma4", "glm47", "kimi_k2", "kimi_k3", "muse_glimmer", "qwen3",
+    "beam", "deepseek_v4", "deepseek_v41", "gemma4", "glm47", "kimi_k2", "kimi_k3", "muse_glimmer", "qwen3",
 ])
 def test_unified_argument_edge_cases_have_current_captures(model_v2, family):
     tab = _tab(model_v2, "tab-unified")
@@ -1350,6 +1350,18 @@ def test_shared_reference_cases_keep_older_peer_captures_unmeasured(model_v2: di
             assert cmp["dynamo"]["na"] == 0, (family, scenario, "current")
             if family in peer_families:
                 _assert_unmeasured_versions(cmp, older_keys)
+            elif family == "beam":
+                # Beam joined the corpus at 0.8.1: every Dynamo column older than that is
+                # unmeasured; 0.8.1 and later carry its captures.
+                _assert_unmeasured_versions(
+                    cmp,
+                    [
+                        candidate["key"]
+                        for candidate in dynamo_candidates
+                        if candidate["key"] != "dynamo"
+                        and tuple(map(int, candidate["version"].split("."))) < (0, 8, 1)
+                    ],
+                )
             else:
                 assert cmp["dynamo@0.7.8"]["na"] == 0, (family, scenario, "original_capture")
 
@@ -1395,7 +1407,7 @@ def test_glm_type_references_have_typed_current_batch_and_unified_captures(
     events = [{"kind": "tool_call", **call} for call in calls]
     assert blocks["golden"]["events"] == blocks["dynamo"]["events"] == events
     assert cell_state(cell, {"key": "dynamo", "label": "Dynamo"})[0] == "green"
-    families = {"deepseek_v4", "deepseek_v41", "gemma4", "glm47", "gpt_oss",
+    families = {"beam", "deepseek_v4", "deepseek_v41", "gemma4", "glm47", "gpt_oss",
                 "kimi_k2", "kimi_k3", "muse_glimmer", "qwen3"}
     rows = {other["family"]: other for other in unified["rows"] if other.get("family")}
     assert rows.keys() == families
