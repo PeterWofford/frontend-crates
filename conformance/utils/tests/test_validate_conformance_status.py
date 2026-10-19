@@ -24,8 +24,8 @@ def _model(cell):
             "kind": "unified",
             "label": "Unified",
             "candidates": [
-                {"key": "dynamo", "label": "Dynamo current", "default_bucket": "A"},
-                {"key": "golden", "label": "GOLDEN", "default_bucket": "C"},
+                {"key": "dynamo", "impl": "dynamo", "version": "0.0.0", "parse_mode": "unified", "label": "Dynamo current", "default_bucket": "A"},
+                {"key": "golden", "impl": "golden", "version": None, "parse_mode": "unified", "label": "GOLDEN", "default_bucket": "C"},
             ],
             "columns": [{"sub": "case", "label": "1.a"}],
             "rows": [{"family": "qwen3", "model_label": "qwen3", "cells": cell}],
@@ -39,6 +39,15 @@ def test_reports_empty_cells():
 
     assert status["reports"][0]["empty"] == 1
     assert status["reports"][0]["issues"][0]["reason"] == "no cell was emitted for this model/case pair"
+
+
+def test_default_capture_identity_is_separate_from_engine_grouping():
+    validator = _load_validator()
+    model = _model({})
+    tab = model["tabs"][0]
+    expected = list(validator.UNIFIED_COMPARISON_DEFAULTS)
+    status = validator.build_status(model, [tab], ["qwen3"], Path("report.html"))
+    assert status["comparison_defaults"]["tab-unified"] == expected
 
 
 def test_reports_unified_reference_mismatches_as_red():
@@ -99,6 +108,82 @@ def test_explicit_unified_na_is_not_empty():
 
 
 @pytest.fixture
+def known_divergence_report(tmp_path):
+    model = _model({})
+    def cell(sub, red):
+        return {
+            "sub": sub, "kind": "cell", "status": "ok", "red_on_diff": True,
+            "cmp": {
+                "dynamo": {"sig": 2 if red else 1, "na": 0, "err": 0, "leak": 0},
+                "golden": {"sig": 1, "na": 0, "err": 0, "leak": 0},
+            },
+        }
+    # Both leaves share one already-red display column. The green sibling must
+    # still fail independently if its observed result starts diverging.
+    model["tabs"][0]["rows"][0]["cells"]["case"] = {
+        "variants": [cell("case_nullable", True), cell("case_union", False)],
+    }
+    registry = tmp_path / "known.yaml"
+    registry.write_text(
+        "qwen3:\n  UNIFIED.case_nullable.qwen3:\n    golden:\n      actual: recorded\n"
+    )
+    return model, registry
+
+
+def test_known_divergences_validate_grouped_fixture_leaves(known_divergence_report):
+    model, registry = known_divergence_report
+    _load_validator().validate_unified_known_divergences(model, registry, ["qwen3"])
+
+
+@pytest.mark.parametrize("damage, message", [
+    ("unexpected_red", "differs from known divergences"),
+    ("stale", "differs from known divergences"),
+    ("missing_leaf", "differs from known divergences"),
+    ("empty", "differs from known divergences"),
+    ("missing_family", "families differ"),
+    ("duplicate_family", "duplicate family rows"),
+    ("unknown_family", "unknown families"),
+    ("wrong_case_family", "invalid case ID"),
+    ("no_leaves", "no applicable fixture leaves"),
+    ("all_na", "no applicable fixture leaves"),
+])
+def test_known_divergences_reject_report_damage(known_divergence_report, damage, message):
+    model, registry = known_divergence_report
+    rows = model["tabs"][0]["rows"]
+    leaves = rows[0]["cells"]["case"]["variants"]
+    if damage == "unexpected_red":
+        leaves[1]["cmp"]["dynamo"]["sig"] = 2
+    elif damage == "stale":
+        leaves[0]["cmp"]["dynamo"]["sig"] = 1
+    elif damage == "missing_leaf":
+        leaves.pop(0)
+    elif damage == "empty":
+        del leaves[1]["cmp"]["dynamo"]
+    elif damage == "missing_family":
+        rows.clear()
+    elif damage == "duplicate_family":
+        rows.append(rows[0])
+    elif damage == "unknown_family":
+        registry.write_text("unknown: {}\n")
+    elif damage == "wrong_case_family":
+        registry.write_text("qwen3:\n  UNIFIED.case_nullable.other:\n    golden: {}\n")
+    elif damage == "no_leaves":
+        rows[0]["cells"].clear()
+    elif damage == "all_na":
+        for leaf in leaves:
+            leaf["status"] = "na"
+    with pytest.raises(ValueError, match=message):
+        _load_validator().validate_unified_known_divergences(model, registry, ["qwen3"])
+
+
+def test_non_golden_known_checks_do_not_allow_display_red(known_divergence_report):
+    model, registry = known_divergence_report
+    registry.write_text("qwen3:\n  UNIFIED.case_nullable.qwen3:\n    chunk_invariance: {}\n")
+    with pytest.raises(ValueError, match="differs from known divergences"):
+        _load_validator().validate_unified_known_divergences(model, registry, ["qwen3"])
+
+
+@pytest.fixture
 def inventory_report(tmp_path):
     fixtures = tmp_path / "unified"
     sources = ("dynamo_v2-0.6.1", "dynamo_v2-0.6.0", "vllm_python-0.26.0", "vllm_rust-0.26.0")
@@ -109,12 +194,13 @@ def inventory_report(tmp_path):
     for source, key in zip(sources, keys):
         (fixtures / source).mkdir(parents=True)
         if key != "dynamo":
-            tab["candidates"].append({"key": key, "label": source, "version": source.split("-")[1]})
+            tab["candidates"].append({"key": key, "impl": source.split("-")[0], "parse_mode": "unified", "label": source, "version": source.split("-")[1]})
     inputs = fixtures / "inputs" / "qwen3" / "UNIFIED.case.yaml"
     inputs.parent.mkdir(parents=True)
     inputs.write_text("cases:\n  sample:\n    scenario: case\n")
     tab["rows"][0]["cells"]["case"] = {
         "kind": "cell", "status": "ok", "red_on_diff": True,
+        "case_id": "UNIFIED.1.a",
         "cmp": {candidate["key"]: {"sig": 1, "leak": 0, "na": 0, "err": 0} for candidate in tab["candidates"]},
         "tooltip": {"candidates": [{"key": candidate["key"], "block": {"events": []}} for candidate in tab["candidates"]]},
     }
@@ -233,7 +319,7 @@ def test_renderer_validates_before_publishing(inventory_report, tmp_path, failur
     (stage / "tests" / "parity").mkdir(parents=True)
     wrapper = sandbox / "render_table_v2.sh"
     wrapper.write_bytes((utils / "render_table_v2.sh").read_bytes())
-    for module in ("validate_conformance_status.py", "case_variants.py", "null_cases.py"):
+    for module in ("validate_conformance_status.py", "case_variants.py", "null_cases.py", "unified_taxonomy.py", "markers.py", "impls.py", "schema_cases.py", "glm47_schema_cases.json", "parser_families.yaml"):
         (tools / module).write_bytes((utils / "src" / module).read_bytes())
     (tools / "_common.sh").write_text(
         "set -euo pipefail\n"
@@ -269,3 +355,16 @@ def test_renderer_validates_before_publishing(inventory_report, tmp_path, failur
         assert out.stat().st_mode & 0o004
     assert not list(tmp_path.glob("report.html.*"))
     assert not list(tmp_path.glob("report.json.*"))
+
+
+def test_unified_only_guard_rejects_removed_tabs_and_foreign_cases():
+    validator = _load_validator()
+    model = _model({"case": {"kind": "cell", "case_id": "UNIFIED.1.a"}})
+    validator.validate_unified_only_report(model)
+    model["tabs"].append({"id": "tab-reasoning-batch"})
+    with pytest.raises(ValueError, match="exactly one Unified"):
+        validator.validate_unified_only_report(model)
+    model["tabs"].pop()
+    model["tabs"][0]["rows"][0]["cells"]["case"]["case_id"] = "TOOLCALLING.batch.1.a"
+    with pytest.raises(ValueError, match="non-Unified"):
+        validator.validate_unified_only_report(model)

@@ -68,6 +68,7 @@ _build_stage_base() {
   mkdir -p "$STAGE/tests/parity/assets"
   \cp -f "$TOOLS/assets/conformance.css" "$STAGE/tests/parity/assets/conformance.css"
   \cp -f "$TOOLS/assets/conformance.js" "$STAGE/tests/parity/assets/conformance.js"
+  \cp -f "$TOOLS/assets/comparison_layout.js" "$STAGE/tests/parity/assets/comparison_layout.js"
   # Markup colorizer (port of markup.py); inlined before conformance_view.js.
   \cp -f "$TOOLS/assets/colorize.js" "$STAGE/tests/parity/assets/colorize.js"
   # JSON data model + JS view: model.py builds it (imported via reasoning_table),
@@ -81,6 +82,8 @@ _build_stage_base() {
   \cp -f "$TOOLS/impls.py" "$STAGE/tests/parity/impls.py"
   \cp -f "$TOOLS/markers.py" "$STAGE/tests/parity/markers.py"
   \cp -f "$TOOLS/null_cases.py" "$STAGE/tests/parity/null_cases.py"
+  \cp -f "$TOOLS/schema_cases.py" "$STAGE/tests/parity/schema_cases.py"
+  \cp -f "$TOOLS/glm47_schema_cases.json" "$STAGE/tests/parity/glm47_schema_cases.json"
   \cp -f "$TOOLS/case_variants.py" "$STAGE/tests/parity/case_variants.py"
   \cp -f "$TOOLS/unified_taxonomy.py" "$STAGE/tests/parity/unified_taxonomy.py"
   \cp -f "$TOOLS/unified_tools.py" "$STAGE/tests/parity/unified_tools.py"
@@ -179,6 +182,7 @@ build_stage_conformance() {
   # Keep the current conformance harness owned by conformance/utils while presenting
   # it in Dynamo's staged tests/parity layout for imports and template lookup.
   \cp -f "$TOOLS/generate_conformance_table.py" "$STAGE/tests/parity/generate_conformance_table.py"
+  \cp -f "$ROOT/conformance/case-taxonomy.yaml" "$STAGE/case-taxonomy.yaml"
   # impls.py + markers.py are staged in _build_stage_base.
   \cp -f "$TOOLS/fixtures.py" "$STAGE/tests/parity/fixtures.py"
   \cp -f "$TOOLS/fixture_snapshot.py" "$STAGE/tests/parity/fixture_snapshot.py"

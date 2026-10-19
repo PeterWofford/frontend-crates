@@ -845,6 +845,23 @@ def test_check_sh_all_does_not_suppress_failures() -> None:
     assert 'exit "$rc"' in all_block
 
 
+def test_check_sh_ci_jobs_partition_the_full_local_gate() -> None:
+    outputs = {
+        mode: subprocess.run(
+            ["bash", str(UTILS / "check.sh"), mode, "--dry-run"],
+            capture_output=True, text=True, check=True,
+        ).stdout
+        for mode in ("ci", "ci-render", "ci-tests")
+    }
+    assert outputs["ci"] == outputs["ci-render"] + outputs["ci-tests"]
+    assert "render v2" in outputs["ci-render"] and "pytest" not in outputs["ci-render"]
+    assert "pytest" in outputs["ci-tests"] and "render v2" not in outputs["ci-tests"]
+    jobs = yaml.safe_load((REPO / ".github/workflows/ci.yml").read_text())["jobs"]
+    for job, mode in (("conformance-table", "ci-render"), ("conformance-utils", "ci-tests")):
+        assert any(f"check.sh {mode}" in step.get("run", "") for step in jobs[job]["steps"])
+    assert set(jobs["deploy-pages"]["needs"]) == {"conformance-table", "conformance-utils"}
+
+
 def test_structured_error_block_marks_x_string_error_marks_bang() -> None:
     """B11: a structured (dict) `error` = a peer parser ran and threw -> `✗`; a
     plain-string `error` is a declared expected-error -> `!`. The failure marker the
@@ -960,6 +977,8 @@ def test_transpose_feature_is_wired() -> None:
     # toolbar checkbox + case-axis data attrs the mirror's corner label reads
     # (the JS view builds the toolbar + table; the template is a skeleton)
     assert "data-transpose-toggle" in view
+    assert "data-compact-cols-toggle" not in view
+    assert "case-label-short" in view and "case-label-full" in view
     assert "data-case-prefix" in view and "data-mode" in view
     # JS builder + integration with the compare engine
     assert "buildTransposed" in js and "data-transpose-table" in js
@@ -967,4 +986,5 @@ def test_transpose_feature_is_wired() -> None:
     assert "!cell.closest('[data-transpose-table]')" in js     # don't double-count
     # CSS shows the mirror in transpose mode and hides the original
     assert "body.transpose-mode" in css and ".transpose-table" in css
+    assert "body.transpose-mode .transpose-table .case-label-full" in css
     assert "sideways-lr" in css  # rotated bottom-up model headers
