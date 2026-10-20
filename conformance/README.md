@@ -20,6 +20,12 @@ The intent of #257 is to remove code, duplicate captures, merge conflicts, and f
 
 The `v2` directory names describe the older streaming parser tests as well as Unified; they do not define the migration scope. Keep the existing archive readers and packagers for those older tests. A family conversion may update that family's stream capture in the existing format without migrating storage or repackaging other families. Retired Unified archives remain historical evidence; new Unified captures use only the YAML store.
 
+### Shared execution metadata
+
+Versioned family checkpoints may reference content-addressed YAML under `executions/` and `receipts/`. These files factor repeated execution metadata and source receipts; the family checkpoint filename still owns capture identity. The reader validates hashes, family/version membership, request bindings, and complete resolved records before accepting a reference. Missing or corrupt dependencies fail validation.
+
+`python3 conformance/utils/src/unified_history.py --compact-executions --store conformance/fixtures-unified-v2` factors existing metadata only after complete decoded-record parity. The operation preserves typed values, absent fields, provenance, and original observations; a second run makes no changes. Existing extraction and packaging consume the same validated store reader.
+
 ### Pin the release version before capture
 
 When adding or converting a parser, or changing its captured behavior, manually pin the intended release version in the same PR before recording output. The invariant is `capture version == crate version == version published after merge`. An automatic bump after capture would break that equality.

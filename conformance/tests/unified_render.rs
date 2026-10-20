@@ -917,6 +917,10 @@ fn validate_selected_dynamo_capture(root: &std::path::Path, capture_dir: &std::p
                 meta.retain(|(family, _), previous| {
                     family != &doc.family || previous.scenario != case.scenario
                 });
+                // v1_split scenarios are retained by the Dynamo v1 captures.
+                if case.scenario.starts_with("v1_split_") {
+                    continue;
+                }
                 meta.insert((doc.family.clone(), key), case);
             }
         }

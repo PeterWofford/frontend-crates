@@ -188,6 +188,7 @@ build_stage_conformance() {
   \cp -f "$TOOLS/fixture_snapshot.py" "$STAGE/tests/parity/fixture_snapshot.py"
   \cp -f "$TOOLS/fixture_disposition.py" "$STAGE/tests/parity/fixture_disposition.py"
   \cp -f "$TOOLS/capture_stimulus.py" "$STAGE/tests/parity/capture_stimulus.py"
+  \cp -f "$TOOLS/viewer_codec.py" "$STAGE/tests/parity/viewer_codec.py"
   \cp -f "$TOOLS/conformance_table.html.j2" "$STAGE/tests/parity/conformance_table.html.j2"
   # Shared CSS/JS assets are staged in _build_stage_base.
   _copy_toolcalling_v2_fixtures
