@@ -105,7 +105,6 @@ opt-level = 3
 [profile.test.package.dynamo-parsers-v2]
 opt-level = 2
 
-# Harmony repeatedly builds the allowed-special-token set during parser setup.
 [profile.test.package.openai-harmony]
 opt-level = 2
 

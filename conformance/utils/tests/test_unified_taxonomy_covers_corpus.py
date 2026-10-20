@@ -39,7 +39,6 @@ import unified_history  # noqa: E402
 import unified_taxonomy as taxonomy  # noqa: E402
 from capture_stimulus import _without_synthetic_finish_step  # noqa: E402
 from fixture_disposition import historical_unified_case_key  # noqa: E402
-from fixture_snapshot import fixture_snapshot_root  # noqa: E402
 from gen_unified_golden import (  # noqa: E402
     CLEAN,
     OnlyFamilies,
