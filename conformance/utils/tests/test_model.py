@@ -313,8 +313,9 @@ def test_unified_schema_defaults_are_loaded_once(tmp_path, monkeypatch):
     shared_tools = original()
     inputs = tmp_path / "inputs" / "gemma4"
     inputs.mkdir(parents=True)
-    # Two files catch per-case or per-file reloads without scanning the full history.
-    for scenario in ("text_only", "reason_only"):
+    # Separate files catch per-file and per-case reloads without reading capture history.
+    scenarios = {"text_only", "reason_only"}
+    for scenario in sorted(scenarios):
         key = unified_taxonomy.numbered_id(scenario)
         (inputs / f"{key}.yaml").write_text(yaml.safe_dump({
             "family": "gemma4", "cases": {key: {
@@ -328,7 +329,9 @@ def test_unified_schema_defaults_are_loaded_once(tmp_path, monkeypatch):
 
     monkeypatch.setattr(table, "unified_tools", tools)
     result = table._load_unified_fixtures(tmp_path)
+    assert {case["scenario"] for case in result[0]} == scenarios
     assert len(result[0]) == 2
+    assert all(case["tools"] is None for case in result[0])
     assert len(calls) == 1
 
 

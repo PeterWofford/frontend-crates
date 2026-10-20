@@ -1026,7 +1026,7 @@ def _packed_layer(root: Path, directory: str, fam: str, field_map, scenarios):
 
 @pytest.fixture(scope="module")
 def committed_unified_store():
-    # These corpus guards only read the same validated history.
+    # These corpus guards read the same history without mutating its records.
     return unified_history.load_store(UTILS.parent / "fixtures-unified-v2")
 
 
@@ -1053,7 +1053,7 @@ def _taxonomy_scenarios(fam: str, store):
     return out
 
 
-def test_every_case_triple_is_identical_at_every_layer(committed_unified_store):
+def test_every_case_triple_is_identical_at_every_layer(tmp_path, committed_unified_store):
     """One corpus, every tracked representation, zero drift, across all three fields.
 
     Compares `(input, init, golden)` for every case of every family across the generator's
@@ -1074,8 +1074,7 @@ def test_every_case_triple_is_identical_at_every_layer(committed_unified_store):
     """
     checked = 0
     store = committed_unified_store
-    # CI already extracted and verified this manifest's immutable snapshot.
-    materialized = fixture_snapshot_root() / "unified"
+    materialized = _materialized_unified_root(tmp_path, store)
     for fam in FAMILIES:
         spec = _emitted_spec(fam)
         scenarios = _taxonomy_scenarios(fam, store)
