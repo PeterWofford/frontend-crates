@@ -1,9 +1,5 @@
-provenance:
-  status: legacy
-  captured_with:
-    dynamo_v1_jail: 9.2.13
-document:
-  mode: unified
+parent: dynamo_v1_jail-9.2.12
+execution: 6fe05badb571200dfb033556c79bae0365038c234cdfc754767b4a929caff6d6
 changes:
   arg_json_null_anyof:
     observation:
@@ -350,6 +346,10 @@ changes:
       unavailable:
         code: source_unavailable
         detail: 'Producer source unavailable: no release tag or crate publication for Dynamo 9.2.13; crates.io returned 404.'
+  muse_unterminated_parameter_then_call:
+    absent: true
+  muse_unterminated_parameter_then_empty_call:
+    absent: true
   narrated_calls:
     observation:
       unavailable:
@@ -1195,5 +1195,3 @@ changes:
       unavailable:
         code: source_unavailable
         detail: 'Producer source unavailable: no release tag or crate publication for Dynamo 9.2.13; crates.io returned 404.'
-metadata_changes: {}
-document_overrides: {}

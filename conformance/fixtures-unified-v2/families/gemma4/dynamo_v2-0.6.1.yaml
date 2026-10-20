@@ -1,11 +1,5 @@
-provenance:
-  status: captured
-  origin:
-    crate_version: 0.6.1
-    source_sha256: 6b3dd4c4938308cae46c18cab3d6ce0d09790116bfd56fd1f0bf2b6725311f50
-    git_commit: f9b3fffecdc02ba7c0a82db499eeafa009274c92
-document:
-  mode: unified
+parent: dynamo_v2-0.6.0
+execution: dd7c80bdc8117a30dbd3a826e3e0b2e94f708ddfa65471a076feeb2da418747d
 changes:
   arg_marker_in_string:
     case_key: UNIFIED.7-2
@@ -267,9 +261,3 @@ changes:
     case_key: UNIFIED.2-2
   two_reason_spans:
     case_key: UNIFIED.10-3
-metadata_changes:
-  retired__30_14: {}
-  retired__31_33: {}
-  retired__31_39: {}
-  retired__31_40: {}
-document_overrides: {}

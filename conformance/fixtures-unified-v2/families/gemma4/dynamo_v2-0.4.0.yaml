@@ -1,11 +1,58 @@
-provenance:
-  status: legacy
-  captured_with:
-    dynamo_v2: 0.4.0
-document:
-  mode: unified
+parent: dynamo_v2-0.3.4
+execution: 7e3e192679f44b4f7e770af7bbc58209d9933391ca8fa5c78a3f41e711e4cda0
 changes:
+  arg_marker_in_string:
+    case_key: UNIFIED.7.b
+    stimulus:
+      ref: current
+    observation:
+      value:
+        assembled:
+        - kind: tool_call
+          name: run
+          arguments:
+            cmd: git log }<tool_call|> --oneline
+        chunks:
+        - expected: []
+        - expected: []
+        - expected: []
+        - expected: []
+        - expected: []
+        - expected: []
+        - expected: []
+        - expected: []
+        - expected:
+          - kind: tool_call
+            name: run
+            arguments: '{"cmd":"git log }<tool_call|> --oneline"}'
+            terminal_metadata_unavailable: this build has no ToolCallDelta::complete
+  arg_unicode:
+    case_key: UNIFIED.7.a
+    stimulus:
+      ref: current
+    observation:
+      value:
+        assembled:
+        - kind: tool_call
+          name: get_weather
+          arguments:
+            city: São Paulo 東京
+        chunks:
+        - expected: []
+        - expected: []
+        - expected: []
+        - expected: []
+        - expected: []
+        - expected: []
+        - expected:
+          - kind: tool_call
+            name: get_weather
+            arguments: '{"city":"São Paulo 東京"}'
+            terminal_metadata_unavailable: this build has no ToolCallDelta::complete
   content_then_reason:
+    case_key: UNIFIED.11.g
+    stimulus:
+      ref: current
     observation:
       value:
         assembled:
@@ -28,6 +75,9 @@ changes:
           - kind: text
             text: The capital is Paris.
   content_then_reason_then_tool:
+    case_key: UNIFIED.11.f
+    stimulus:
+      ref: current
     observation:
       value:
         assembled:
@@ -59,7 +109,57 @@ changes:
             name: get_weather
             arguments: '{"city":"Paris"}'
             terminal_metadata_unavailable: this build has no ToolCallDelta::complete
+  deepseek_v41_mixed_control_text_in_string:
+    observation:
+      value:
+        assembled:
+        - kind: tool_call
+          name: f
+          arguments:
+            x: " <|channel>thought\nquoted<channel|> <|tool_call> <tool_call|> &amp; \"x\"\\\n "
+        chunks:
+        - expected: []
+        - expected: []
+        - expected: []
+        - expected: []
+        - expected: []
+        - expected: []
+        - expected: []
+        - expected: []
+        - expected: []
+        - expected: []
+        - expected: []
+        - expected: []
+        - expected: []
+        - expected: []
+        - expected:
+          - kind: tool_call
+            name: f
+            arguments: '{"x":" <|channel>thought\nquoted<channel|> <|tool_call> <tool_call|> &amp; \"x\"\\\n "}'
+            terminal_metadata_unavailable: this build has no ToolCallDelta::complete
+        - expected: []
+  empty_args:
+    case_key: UNIFIED.6.a
+    stimulus:
+      ref: current
+    observation:
+      value:
+        assembled:
+        - kind: tool_call
+          name: get_weather
+          arguments: {}
+        chunks:
+        - expected: []
+        - expected: []
+        - expected:
+          - kind: tool_call
+            name: get_weather
+            arguments: '{}'
+            terminal_metadata_unavailable: this build has no ToolCallDelta::complete
   gemma4_guided_json_malformed_call_prefix_before_reasoning:
+    case_key: UNIFIED.g4-2
+    stimulus:
+      ref: current
     observation:
       value:
         assembled:
@@ -86,6 +186,9 @@ changes:
             arguments: '{"city": "Paris"}'
             terminal_metadata_unavailable: this build has no ToolCallDelta::complete
   gemma4_guided_json_visible_call_prose_before_reasoning:
+    case_key: UNIFIED.g4-1
+    stimulus:
+      ref: current
     observation:
       value:
         assembled:
@@ -112,6 +215,9 @@ changes:
             arguments: '{"city": "Paris"}'
             terminal_metadata_unavailable: this build has no ToolCallDelta::complete
   guided_json_after_reasoning:
+    case_key: UNIFIED.30.f
+    stimulus:
+      ref: current
     observation:
       value:
         assembled:
@@ -133,6 +239,9 @@ changes:
             arguments: '{"city": "Paris"}'
             terminal_metadata_unavailable: this build has no ToolCallDelta::complete
   guided_json_array_argument:
+    case_key: UNIFIED.30.e
+    stimulus:
+      ref: current
     observation:
       value:
         assembled:
@@ -150,6 +259,9 @@ changes:
             arguments: '{"values": [2, 3, 5]}'
             terminal_metadata_unavailable: this build has no ToolCallDelta::complete
   guided_json_bare_tool_header_recovers_inside_a_thought:
+    case_key: UNIFIED.31-28
+    stimulus:
+      ref: current
     observation:
       value:
         assembled:
@@ -171,6 +283,9 @@ changes:
             terminal_metadata_unavailable: this build has no ToolCallDelta::complete
         - expected: []
   guided_json_escaped_string_args:
+    case_key: UNIFIED.30.d
+    stimulus:
+      ref: current
     observation:
       value:
         assembled:
@@ -185,6 +300,9 @@ changes:
             arguments: '{"cmd": "echo \"雪\" > C:\\tmp\\a.txt"}'
             terminal_metadata_unavailable: this build has no ToolCallDelta::complete
   guided_json_gt_in_argument_bare_opener:
+    case_key: UNIFIED.30.m
+    stimulus:
+      ref: current
     observation:
       value:
         assembled:
@@ -199,6 +317,9 @@ changes:
             arguments: '{"city": "a > b"}'
             terminal_metadata_unavailable: this build has no ToolCallDelta::complete
   guided_json_gt_in_argument_trailing_close:
+    case_key: UNIFIED.30.k
+    stimulus:
+      ref: current
     observation:
       value:
         assembled:
@@ -214,6 +335,9 @@ changes:
             terminal_metadata_unavailable: this build has no ToolCallDelta::complete
         - expected: []
   guided_json_gt_in_argument_wrapped:
+    case_key: UNIFIED.30.l
+    stimulus:
+      ref: current
     observation:
       value:
         assembled:
@@ -230,6 +354,9 @@ changes:
             terminal_metadata_unavailable: this build has no ToolCallDelta::complete
         - expected: []
   guided_json_invalid_call:
+    case_key: UNIFIED.31-1
+    stimulus:
+      ref: current
     observation:
       value:
         assembled:
@@ -240,6 +367,9 @@ changes:
           - kind: text
             text: '{"unexpected": "shape"}'
   guided_json_list_with_broken_element:
+    case_key: UNIFIED.31-4
+    stimulus:
+      ref: current
     observation:
       value:
         assembled:
@@ -251,6 +381,9 @@ changes:
           - kind: text
             text: '[{"name": "get_weather", "arguments": {"city": "Paris"}}, {"name": "run", "arguments": {"cmd": ]'
   guided_json_malformed_json:
+    case_key: UNIFIED.31-2
+    stimulus:
+      ref: current
     observation:
       value:
         assembled:
@@ -262,6 +395,9 @@ changes:
           - kind: text
             text: '{"name": "get_weather", "arguments": {"city": "Par'
   guided_json_marker_inside_argument:
+    case_key: UNIFIED.30.g
+    stimulus:
+      ref: current
     observation:
       value:
         assembled:
@@ -278,6 +414,9 @@ changes:
             arguments: '{"note": "<channel|>"}'
             terminal_metadata_unavailable: this build has no ToolCallDelta::complete
   guided_json_named_tool:
+    case_key: UNIFIED.30.a
+    stimulus:
+      ref: current
     observation:
       value:
         assembled:
@@ -292,6 +431,9 @@ changes:
             arguments: '{"city": "Paris"}'
             terminal_metadata_unavailable: this build has no ToolCallDelta::complete
   guided_json_narrated_invoke_in_reasoning:
+    case_key: UNIFIED.31-8
+    stimulus:
+      ref: current
     observation:
       value:
         assembled:
@@ -317,6 +459,9 @@ changes:
             arguments: '{"city": "Paris"}'
             terminal_metadata_unavailable: this build has no ToolCallDelta::complete
   guided_json_narrated_prefix_inside_reasoning:
+    case_key: UNIFIED.31-22
+    stimulus:
+      ref: current
     observation:
       value:
         assembled:
@@ -338,6 +483,9 @@ changes:
             arguments: '{"city": "Paris"}'
             terminal_metadata_unavailable: this build has no ToolCallDelta::complete
   guided_json_native_markup_only:
+    case_key: UNIFIED.31-23
+    stimulus:
+      ref: current
     observation:
       value:
         assembled: []
@@ -350,6 +498,9 @@ changes:
         - expected: []
         - expected: []
   guided_json_orphan_reason_close_before_payload:
+    case_key: UNIFIED.31-10
+    stimulus:
+      ref: current
     observation:
       value:
         assembled:
@@ -365,6 +516,9 @@ changes:
             arguments: '{"city": "Paris"}'
             terminal_metadata_unavailable: this build has no ToolCallDelta::complete
   guided_json_orphan_tool_close_before_payload:
+    case_key: UNIFIED.31-11
+    stimulus:
+      ref: current
     observation:
       value:
         assembled:
@@ -380,6 +534,9 @@ changes:
             arguments: '{"city": "Paris"}'
             terminal_metadata_unavailable: this build has no ToolCallDelta::complete
   guided_json_partial_calls:
+    case_key: UNIFIED.31-3
+    stimulus:
+      ref: current
     observation:
       value:
         assembled:
@@ -390,6 +547,9 @@ changes:
           - kind: text
             text: '[{"name": "get_weather", "arguments": {"city": "Paris"}}, {"arguments": {"city": "Tokyo"}}]'
   guided_json_prose_before_reasoning:
+    case_key: UNIFIED.31-9
+    stimulus:
+      ref: current
     observation:
       value:
         assembled:
@@ -416,6 +576,9 @@ changes:
             arguments: '{"city": "Paris"}'
             terminal_metadata_unavailable: this build has no ToolCallDelta::complete
   guided_json_quoted_bare_header_after_payload:
+    case_key: UNIFIED.31-27
+    stimulus:
+      ref: current
     observation:
       value:
         assembled:
@@ -445,6 +608,9 @@ changes:
           - kind: text
             text: <channel|>
   guided_json_quoted_bare_header_in_answer:
+    case_key: UNIFIED.31-25
+    stimulus:
+      ref: current
     observation:
       value:
         assembled:
@@ -464,6 +630,9 @@ changes:
 
               self literal<channel|>[{"name": "get_weather", "arguments": {"city": "Paris"}}]'
   guided_json_required_tool:
+    case_key: UNIFIED.30.b
+    stimulus:
+      ref: current
     observation:
       value:
         assembled:
@@ -478,6 +647,9 @@ changes:
             arguments: '{"city": "Paris"}'
             terminal_metadata_unavailable: this build has no ToolCallDelta::complete
   guided_json_schema_error_nameless_element_bare_opener:
+    case_key: UNIFIED.31-20
+    stimulus:
+      ref: current
     observation:
       value:
         assembled:
@@ -488,6 +660,9 @@ changes:
           - kind: text
             text: '[{"name": "get_weather", "arguments": {"city": "Paris"}}, {"arguments": {}}]'
   guided_json_schema_error_nameless_element_trailing_close:
+    case_key: UNIFIED.31-18
+    stimulus:
+      ref: current
     observation:
       value:
         assembled:
@@ -499,6 +674,9 @@ changes:
             text: '[{"name": "get_weather", "arguments": {"city": "Paris"}}, {"arguments": {}}]'
         - expected: []
   guided_json_schema_error_nameless_element_wrapped:
+    case_key: UNIFIED.31-19
+    stimulus:
+      ref: current
     observation:
       value:
         assembled:
@@ -511,6 +689,9 @@ changes:
             text: '[{"name": "get_weather", "arguments": {"city": "Paris"}}, {"arguments": {}}]'
         - expected: []
   guided_json_schema_error_not_a_call_bare_opener:
+    case_key: UNIFIED.31-17
+    stimulus:
+      ref: current
     observation:
       value:
         assembled:
@@ -521,6 +702,9 @@ changes:
           - kind: text
             text: '{"unexpected": "shape"}'
   guided_json_schema_error_not_a_call_trailing_close:
+    case_key: UNIFIED.31-15
+    stimulus:
+      ref: current
     observation:
       value:
         assembled:
@@ -532,6 +716,9 @@ changes:
             text: '{"unexpected": "shape"}'
         - expected: []
   guided_json_schema_error_not_a_call_wrapped:
+    case_key: UNIFIED.31-16
+    stimulus:
+      ref: current
     observation:
       value:
         assembled:
@@ -544,6 +731,9 @@ changes:
             text: '{"unexpected": "shape"}'
         - expected: []
   guided_json_stray_prefix_before_reasoning:
+    case_key: UNIFIED.31-21
+    stimulus:
+      ref: current
     observation:
       value:
         assembled:
@@ -566,6 +756,9 @@ changes:
             arguments: '{"city": "Paris"}'
             terminal_metadata_unavailable: this build has no ToolCallDelta::complete
   guided_json_syntax_error_bare_opener:
+    case_key: UNIFIED.31-14
+    stimulus:
+      ref: current
     observation:
       value:
         assembled:
@@ -577,6 +770,9 @@ changes:
           - kind: text
             text: '[{"name": "get_weather", "arguments": {"city": '
   guided_json_syntax_error_trailing_close:
+    case_key: UNIFIED.31-12
+    stimulus:
+      ref: current
     observation:
       value:
         assembled:
@@ -589,6 +785,9 @@ changes:
           - kind: text
             text: '[{"name": "get_weather", "arguments": {"city":'
   guided_json_syntax_error_wrapped:
+    case_key: UNIFIED.31-13
+    stimulus:
+      ref: current
     observation:
       value:
         assembled:
@@ -602,6 +801,9 @@ changes:
           - kind: text
             text: '[{"name": "get_weather", "arguments": {"city":'
   guided_json_tool_close_after_payload:
+    case_key: UNIFIED.31-6
+    stimulus:
+      ref: current
     observation:
       value:
         assembled:
@@ -617,6 +819,9 @@ changes:
             terminal_metadata_unavailable: this build has no ToolCallDelta::complete
         - expected: []
   guided_json_tool_open_before_payload:
+    case_key: UNIFIED.31-5
+    stimulus:
+      ref: current
     observation:
       value:
         assembled:
@@ -632,6 +837,9 @@ changes:
             arguments: '{"city": "Paris"}'
             terminal_metadata_unavailable: this build has no ToolCallDelta::complete
   guided_json_two_calls:
+    case_key: UNIFIED.30.c
+    stimulus:
+      ref: current
     observation:
       value:
         assembled:
@@ -654,6 +862,9 @@ changes:
             arguments: '{"cmd": "git log"}'
             terminal_metadata_unavailable: this build has no ToolCallDelta::complete
   guided_json_unterminated_reasoning_then_wrapped_payload:
+    case_key: UNIFIED.31-24
+    stimulus:
+      ref: current
     observation:
       value:
         assembled:
@@ -676,6 +887,9 @@ changes:
             terminal_metadata_unavailable: this build has no ToolCallDelta::complete
         - expected: []
   guided_json_wrapped_in_tool_markup:
+    case_key: UNIFIED.31-7
+    stimulus:
+      ref: current
     observation:
       value:
         assembled:
@@ -692,6 +906,7 @@ changes:
             terminal_metadata_unavailable: this build has no ToolCallDelta::complete
         - expected: []
   guided_quoted_reasoning_closer_named:
+    case_key: UNIFIED.34-8
     observation:
       value:
         assembled:
@@ -718,6 +933,7 @@ changes:
             arguments: '{"city": "Paris"}'
             terminal_metadata_unavailable: this build has no ToolCallDelta::complete
   guided_quoted_reasoning_closer_required:
+    case_key: UNIFIED.34-9
     observation:
       value:
         assembled:
@@ -744,6 +960,7 @@ changes:
             arguments: '{"city": "Paris"}'
             terminal_metadata_unavailable: this build has no ToolCallDelta::complete
   guided_response_quoted_control_braces_named:
+    case_key: UNIFIED.35-3
     observation:
       value:
         assembled:
@@ -759,6 +976,7 @@ changes:
           - kind: text
             text: ' { example }" stays visible. {"city": "Paris"}'
   guided_response_quoted_control_braces_required:
+    case_key: UNIFIED.35-4
     observation:
       value:
         assembled:
@@ -773,7 +991,113 @@ changes:
         - expected:
           - kind: text
             text: ' { example }" stays visible. {"name": "get_weather", "arguments": {"city": "Paris"}}'
+  interstitial_text:
+    case_key: UNIFIED.11.e
+    stimulus:
+      ref: current
+    observation:
+      value:
+        assembled:
+        - kind: reasoning
+          text: a
+        - kind: text
+          text: 'Here you go: '
+        - kind: tool_call
+          name: get_weather
+          arguments:
+            city: Paris
+        chunks:
+        - expected: []
+        - expected:
+          - kind: reasoning
+            text: a
+        - expected: []
+        - expected:
+          - kind: text
+            text: 'Here you go: '
+        - expected: []
+        - expected: []
+        - expected: []
+        - expected: []
+        - expected: []
+        - expected: []
+        - expected:
+          - kind: tool_call
+            name: get_weather
+            arguments: '{"city":"Paris"}'
+            terminal_metadata_unavailable: this build has no ToolCallDelta::complete
+  malformed_json_then_two_valid_calls:
+    observation:
+      value:
+        assembled: []
+        chunks:
+        - expected: []
+        - expected: []
+  narrated_calls:
+    case_key: UNIFIED.8.e
+    stimulus:
+      ref: current
+    observation:
+      value:
+        assembled:
+        - kind: tool_call
+          name: get_weather
+          arguments:
+            city: Paris
+        - kind: text
+          text: ' then I''ll run '
+        - kind: tool_call
+          name: f
+          arguments:
+            x: '1'
+        - kind: text
+          text: ' and '
+        - kind: tool_call
+          name: g
+          arguments:
+            y: '2'
+        chunks:
+        - expected: []
+        - expected: []
+        - expected: []
+        - expected: []
+        - expected: []
+        - expected: []
+        - expected:
+          - kind: tool_call
+            name: get_weather
+            arguments: '{"city":"Paris"}'
+            terminal_metadata_unavailable: this build has no ToolCallDelta::complete
+        - expected:
+          - kind: text
+            text: ' then I''ll run '
+        - expected: []
+        - expected: []
+        - expected: []
+        - expected: []
+        - expected: []
+        - expected: []
+        - expected:
+          - kind: tool_call
+            name: f
+            arguments: '{"x":"1"}'
+            terminal_metadata_unavailable: this build has no ToolCallDelta::complete
+        - expected:
+          - kind: text
+            text: ' and '
+        - expected: []
+        - expected: []
+        - expected: []
+        - expected: []
+        - expected: []
+        - expected: []
+        - expected:
+          - kind: tool_call
+            name: g
+            arguments: '{"y":"2"}'
+            terminal_metadata_unavailable: this build has no ToolCallDelta::complete
   native_quoted_control_in_reasoning:
+    case_key: UNIFIED.40-5
     observation:
       value:
         assembled:
@@ -786,6 +1110,7 @@ changes:
         - expected: []
         - expected: []
   native_quoted_control_in_response:
+    case_key: UNIFIED.8-6
     observation:
       value:
         assembled:
@@ -798,6 +1123,7 @@ changes:
         - expected: []
         - expected: []
   native_quoted_control_then_call:
+    case_key: UNIFIED.8-8
     observation:
       value:
         assembled:
@@ -825,6 +1151,7 @@ changes:
             arguments: '{"city":"Paris"}'
             terminal_metadata_unavailable: this build has no ToolCallDelta::complete
   native_quoted_incomplete_header:
+    case_key: UNIFIED.8-10
     observation:
       value:
         assembled:
@@ -839,6 +1166,7 @@ changes:
         - expected: []
         - expected: []
   native_single_quote_contraction_reasoning:
+    case_key: UNIFIED.40-6
     observation:
       value:
         assembled:
@@ -851,6 +1179,7 @@ changes:
         - expected: []
         - expected: []
   native_single_quote_contraction_response:
+    case_key: UNIFIED.8-11
     observation:
       value:
         assembled:
@@ -863,6 +1192,7 @@ changes:
         - expected: []
         - expected: []
   native_single_quoted_word_control:
+    case_key: UNIFIED.8-7
     observation:
       value:
         assembled:
@@ -875,6 +1205,7 @@ changes:
         - expected: []
         - expected: []
   native_unmatched_quote_then_call:
+    case_key: UNIFIED.8-9
     observation:
       value:
         assembled:
@@ -900,6 +1231,9 @@ changes:
             arguments: '{"city":"Paris"}'
             terminal_metadata_unavailable: this build has no ToolCallDelta::complete
   orphan_close_after_prose:
+    case_key: UNIFIED.5.c
+    stimulus:
+      ref: current
     observation:
       value:
         assembled:
@@ -911,6 +1245,9 @@ changes:
             text: 'I will check that. '
         - expected: []
   prefilled_reasoning_redundant_opener:
+    case_key: UNIFIED.41.a
+    stimulus:
+      ref: current
     observation:
       value:
         assembled:
@@ -938,6 +1275,9 @@ changes:
             arguments: '{"city":"London"}'
             terminal_metadata_unavailable: this build has no ToolCallDelta::complete
   prefilled_reasoning_then_text:
+    case_key: UNIFIED.40.d
+    stimulus:
+      ref: current
     observation:
       value:
         assembled:
@@ -954,6 +1294,9 @@ changes:
           - kind: text
             text: The answer is 42.
   prefilled_reasoning_then_text_then_tool:
+    case_key: UNIFIED.40.c
+    stimulus:
+      ref: current
     observation:
       value:
         assembled:
@@ -985,6 +1328,9 @@ changes:
             arguments: '{"city":"Paris"}'
             terminal_metadata_unavailable: this build has no ToolCallDelta::complete
   prefilled_reasoning_truncated:
+    case_key: UNIFIED.41.b
+    stimulus:
+      ref: current
     observation:
       value:
         assembled:
@@ -1000,6 +1346,9 @@ changes:
         - expected: []
         - expected: []
   prefilled_reasoning_with_guided_json:
+    case_key: UNIFIED.40.b
+    stimulus:
+      ref: current
     observation:
       value:
         assembled:
@@ -1020,6 +1369,9 @@ changes:
             arguments: '{"city": "Paris"}'
             terminal_metadata_unavailable: this build has no ToolCallDelta::complete
   prefilled_reasoning_with_tool:
+    case_key: UNIFIED.40.a
+    stimulus:
+      ref: current
     observation:
       value:
         assembled:
@@ -1046,6 +1398,9 @@ changes:
             arguments: '{"city":"Paris"}'
             terminal_metadata_unavailable: this build has no ToolCallDelta::complete
   prefilled_response_reasoning_markers_literal:
+    case_key: UNIFIED.50.d
+    stimulus:
+      ref: current
     observation:
       value:
         assembled:
@@ -1086,6 +1441,9 @@ changes:
             arguments: '{"city":"Paris"}'
             terminal_metadata_unavailable: this build has no ToolCallDelta::complete
   reason_after_tool:
+    case_key: UNIFIED.11.b
+    stimulus:
+      ref: current
     observation:
       value:
         assembled:
@@ -1125,6 +1483,9 @@ changes:
           - kind: text
             text: It's 18C.
   reason_between_calls:
+    case_key: UNIFIED.11.i
+    stimulus:
+      ref: current
     observation:
       value:
         assembled:
@@ -1167,6 +1528,9 @@ changes:
             arguments: '{"y":"2"}'
             terminal_metadata_unavailable: this build has no ToolCallDelta::complete
   reason_interleaved:
+    case_key: UNIFIED.11.c
+    stimulus:
+      ref: current
     observation:
       value:
         assembled:
@@ -1216,6 +1580,9 @@ changes:
             arguments: '{"y":"2"}'
             terminal_metadata_unavailable: this build has no ToolCallDelta::complete
   reason_markup_in_arg:
+    case_key: UNIFIED.12.a
+    stimulus:
+      ref: current
     observation:
       value:
         assembled:
@@ -1240,6 +1607,9 @@ changes:
             arguments: '{"note":"<|channel>thought\nreconsider<channel|>"}'
             terminal_metadata_unavailable: this build has no ToolCallDelta::complete
   reason_markup_in_arg_with_text:
+    case_key: UNIFIED.12.c
+    stimulus:
+      ref: current
     observation:
       value:
         assembled:
@@ -1273,7 +1643,75 @@ changes:
         - expected:
           - kind: text
             text: ' done.'
+  reason_only:
+    case_key: UNIFIED.10.a
+    stimulus:
+      ref: current
+    observation:
+      value:
+        assembled:
+        - kind: reasoning
+          text: just thinking, no answer
+        chunks:
+        - expected: []
+        - expected:
+          - kind: reasoning
+            text: just thinking, no answer
+        - expected: []
+  reason_then_content:
+    case_key: UNIFIED.10.b
+    stimulus:
+      ref: current
+    observation:
+      value:
+        assembled:
+        - kind: reasoning
+          text: let me think
+        - kind: text
+          text: The answer is 42.
+        chunks:
+        - expected: []
+        - expected:
+          - kind: reasoning
+            text: let me think
+        - expected: []
+        - expected:
+          - kind: text
+            text: The answer is 42.
+  reason_then_tool:
+    case_key: UNIFIED.11.a
+    stimulus:
+      ref: current
+    observation:
+      value:
+        assembled:
+        - kind: reasoning
+          text: Check weather.
+        - kind: tool_call
+          name: get_weather
+          arguments:
+            city: Paris
+        chunks:
+        - expected: []
+        - expected:
+          - kind: reasoning
+            text: Check weather.
+        - expected: []
+        - expected: []
+        - expected: []
+        - expected: []
+        - expected: []
+        - expected: []
+        - expected: []
+        - expected:
+          - kind: tool_call
+            name: get_weather
+            arguments: '{"city":"Paris"}'
+            terminal_metadata_unavailable: this build has no ToolCallDelta::complete
   reason_tool_reason_tool_reason:
+    case_key: UNIFIED.11.h
+    stimulus:
+      ref: current
     observation:
       value:
         assembled:
@@ -1330,6 +1768,9 @@ changes:
             text: C
         - expected: []
   reason_tool_text_reason_tool:
+    case_key: UNIFIED.11.d
+    stimulus:
+      ref: current
     observation:
       value:
         assembled:
@@ -1383,7 +1824,76 @@ changes:
             name: g
             arguments: '{"y":"2"}'
             terminal_metadata_unavailable: this build has no ToolCallDelta::complete
+  reason_unterminated:
+    case_key: UNIFIED.10.d
+    stimulus:
+      ref: current
+    observation:
+      value:
+        assembled:
+        - kind: reasoning
+          text: thinking but stream ends
+        chunks:
+        - expected: []
+        - expected:
+          - kind: reasoning
+            text: thinking but stream ends
   retired__30_14:
+    case_key: UNIFIED.30-14
+    stimulus:
+      inline:
+        input: 'call:get_weather[{"name": "get_weather", "arguments": {"city": "a > b"}}]'
+        init:
+          starting_state: None
+          tool_output_mode: GuidedJson
+          named_tool: null
+        finish_reason: stop
+        tools:
+        - name: get_weather
+          parameters:
+            type: object
+            properties:
+              city:
+                type: string
+        - name: f
+          parameters:
+            type: object
+            properties:
+              x:
+                type: string
+        - name: g
+          parameters:
+            type: object
+            properties:
+              y:
+                type: string
+        - name: run
+          parameters:
+            type: object
+            properties:
+              cmd:
+                type: string
+        - name: log
+          parameters:
+            type: object
+            properties:
+              note:
+                type: string
+        - name: sum_values
+          parameters:
+            type: object
+            properties:
+              values:
+                type: array
+                items:
+                  type: number
+        - name: functions.
+          parameters:
+            type: object
+            properties: {}
+        chunks:
+        - delta_text: 'call:get_weather[{"name": "get_weather", "arguments": {"city": "a > b"}}]'
+        - delta_text: ‹finish›
     observation:
       value:
         assembled:
@@ -1395,6 +1905,74 @@ changes:
           - kind: text
             text: 'call:get_weather[{"name": "get_weather", "arguments": {"city": "a > b"}}]'
   retired__31_33:
+    case_key: UNIFIED.31-33
+    stimulus:
+      inline:
+        input: '<|channel>thought
+
+          before call:f{x:<|"|>é🙂<par{value}<|"|>}<tool_call|> after<channel|>[{"name": "get_weather", "arguments": {"city": "Paris"}}]'
+        init:
+          starting_state: None
+          tool_output_mode: GuidedJson
+          named_tool: null
+        finish_reason: stop
+        tools:
+        - name: get_weather
+          parameters:
+            type: object
+            properties:
+              city:
+                type: string
+        - name: f
+          parameters:
+            type: object
+            properties:
+              x:
+                type: string
+        - name: g
+          parameters:
+            type: object
+            properties:
+              y:
+                type: string
+        - name: run
+          parameters:
+            type: object
+            properties:
+              cmd:
+                type: string
+        - name: log
+          parameters:
+            type: object
+            properties:
+              note:
+                type: string
+        - name: sum_values
+          parameters:
+            type: object
+            properties:
+              values:
+                type: array
+                items:
+                  type: number
+        - name: functions.
+          parameters:
+            type: object
+            properties: {}
+        chunks:
+        - delta_text: <|channel>
+        - delta_text: 'thought
+
+            before call:f{x:'
+        - delta_text: <|"|>
+        - delta_text: é🙂
+        - delta_text: <par{value}<|"|>
+        - delta_text: '}'
+        - delta_text: <tool_call|>
+        - delta_text: ' after'
+        - delta_text: <channel|>
+        - delta_text: '[{"name": "get_weather", "arguments": {"city": "Paris"}}]'
+        - delta_text: ‹finish›
     observation:
       value:
         assembled:
@@ -1432,6 +2010,69 @@ changes:
             arguments: '{"city": "Paris"}'
             terminal_metadata_unavailable: this build has no ToolCallDelta::complete
   retired__31_39:
+    case_key: UNIFIED.31-39
+    stimulus:
+      inline:
+        input: 'call:<|channel>thought
+
+          x<channel|>[{"name":"f","arguments":{}}]'
+        init:
+          starting_state: Reasoning
+          tool_output_mode: GuidedJson
+          named_tool: null
+        finish_reason: stop
+        tools:
+        - name: get_weather
+          parameters:
+            type: object
+            properties:
+              city:
+                type: string
+        - name: f
+          parameters:
+            type: object
+            properties:
+              x:
+                type: string
+        - name: g
+          parameters:
+            type: object
+            properties:
+              y:
+                type: string
+        - name: run
+          parameters:
+            type: object
+            properties:
+              cmd:
+                type: string
+        - name: log
+          parameters:
+            type: object
+            properties:
+              note:
+                type: string
+        - name: sum_values
+          parameters:
+            type: object
+            properties:
+              values:
+                type: array
+                items:
+                  type: number
+        - name: functions.
+          parameters:
+            type: object
+            properties: {}
+        chunks:
+        - delta_text: 'call:'
+        - delta_text: <|channel>
+        - delta_text: 'thought
+
+            x'
+        - delta_text: <channel|>
+        - delta_text: '[{"name":"f","arguments":{}}]'
+        - delta_text: ‹finish›
     observation:
       value:
         assembled:
@@ -1455,6 +2096,80 @@ changes:
             arguments: '{}'
             terminal_metadata_unavailable: this build has no ToolCallDelta::complete
   retired__31_40:
+    case_key: UNIFIED.31-40
+    stimulus:
+      inline:
+        input: '<|channel>thought
+
+          before call:f{x:<|"|><|channel>thought
+
+          quoted<channel|><|"|>}<tool_call|> after<channel|>[{"name": "get_weather", "arguments": {"city": "Paris"}}]'
+        init:
+          starting_state: None
+          tool_output_mode: GuidedJson
+          named_tool: null
+        finish_reason: stop
+        tools:
+        - name: get_weather
+          parameters:
+            type: object
+            properties:
+              city:
+                type: string
+        - name: f
+          parameters:
+            type: object
+            properties:
+              x:
+                type: string
+        - name: g
+          parameters:
+            type: object
+            properties:
+              y:
+                type: string
+        - name: run
+          parameters:
+            type: object
+            properties:
+              cmd:
+                type: string
+        - name: log
+          parameters:
+            type: object
+            properties:
+              note:
+                type: string
+        - name: sum_values
+          parameters:
+            type: object
+            properties:
+              values:
+                type: array
+                items:
+                  type: number
+        - name: functions.
+          parameters:
+            type: object
+            properties: {}
+        chunks:
+        - delta_text: <|channel>
+        - delta_text: 'thought
+
+            before call:f{x:'
+        - delta_text: <|"|>
+        - delta_text: <|channel>
+        - delta_text: 'thought
+
+            quoted'
+        - delta_text: <channel|>
+        - delta_text: <|"|>
+        - delta_text: '}'
+        - delta_text: <tool_call|>
+        - delta_text: ' after'
+        - delta_text: <channel|>
+        - delta_text: '[{"name": "get_weather", "arguments": {"city": "Paris"}}]'
+        - delta_text: ‹finish›
     observation:
       value:
         assembled:
@@ -1494,6 +2209,10 @@ changes:
             arguments: '{"city": "Paris"}'
             terminal_metadata_unavailable: this build has no ToolCallDelta::complete
   retired__50_a:
+    case_key: UNIFIED.50.a
+    stimulus:
+      unavailable:
+        code: original_request_not_retained
     observation:
       value:
         assembled:
@@ -1518,6 +2237,10 @@ changes:
             name: get_weather
             arguments: '{"city":"Paris"}'
   retired__50_b:
+    case_key: UNIFIED.50.b
+    stimulus:
+      unavailable:
+        code: original_request_not_retained
     observation:
       value:
         assembled:
@@ -1528,6 +2251,10 @@ changes:
           - kind: text
             text: '[{"name": "get_weather", "arguments": {"city": "Paris"}}]'
   retired__50_c:
+    case_key: UNIFIED.50.c
+    stimulus:
+      unavailable:
+        code: original_request_not_retained
     observation:
       value:
         assembled:
@@ -1538,6 +2265,10 @@ changes:
           - kind: text
             text: '[{"name": "get_weather", "arguments": {"city": "Paris"}}, {"name": "run", "arguments": {"cmd": "git log"}}]'
   retired__51_a:
+    case_key: UNIFIED.51.a
+    stimulus:
+      unavailable:
+        code: original_request_not_retained
     observation:
       value:
         assembled:
@@ -1552,6 +2283,10 @@ changes:
         - expected: []
         - expected: []
   retired__51_b:
+    case_key: UNIFIED.51.b
+    stimulus:
+      unavailable:
+        code: original_request_not_retained
     observation:
       value:
         assembled:
@@ -1562,6 +2297,26 @@ changes:
           - kind: text
             text: '[{"name": "get_weather", "arguments": {"city": "Paris"}}, {"arguments": {"city": "Tokyo"}}]'
   retired__muse_1:
+    case_key: UNIFIED.31-26
+    stimulus:
+      partial:
+        input: 'I mean <|channel>thought
+
+          get_weather literal<channel|>[{"name": "get_weather", "arguments": {"city": "Paris"}}]'
+        init:
+          starting_state: Response
+          tool_output_mode: GuidedJson
+          named_tool: null
+        finish_reason: tool_calls
+        chunks:
+        - delta_text: 'I mean '
+        - delta_text: <|channel>
+        - delta_text: 'thought
+
+            get_weather literal'
+        - delta_text: <channel|>
+        - delta_text: '[{"name": "get_weather", "arguments": {"city": "Paris"}}]'
+        - delta_text: ‹finish›
     observation:
       value:
         assembled:
@@ -1580,7 +2335,94 @@ changes:
             text: 'I mean <|channel>thought
 
               get_weather literal<channel|>[{"name": "get_weather", "arguments": {"city": "Paris"}}]'
+  text_before_tool:
+    case_key: UNIFIED.8.a
+    stimulus:
+      ref: current
+    observation:
+      value:
+        assembled:
+        - kind: text
+          text: 'On it: '
+        - kind: tool_call
+          name: get_weather
+          arguments:
+            city: Paris
+        chunks:
+        - expected:
+          - kind: text
+            text: 'On it: '
+        - expected: []
+        - expected: []
+        - expected: []
+        - expected: []
+        - expected: []
+        - expected: []
+        - expected:
+          - kind: tool_call
+            name: get_weather
+            arguments: '{"city":"Paris"}'
+            terminal_metadata_unavailable: this build has no ToolCallDelta::complete
+  text_between_calls:
+    case_key: UNIFIED.8.d
+    stimulus:
+      ref: current
+    observation:
+      value:
+        assembled:
+        - kind: tool_call
+          name: f
+          arguments:
+            x: '1'
+        - kind: text
+          text: ' then '
+        - kind: tool_call
+          name: g
+          arguments:
+            y: '2'
+        chunks:
+        - expected: []
+        - expected: []
+        - expected: []
+        - expected: []
+        - expected: []
+        - expected: []
+        - expected:
+          - kind: tool_call
+            name: f
+            arguments: '{"x":"1"}'
+            terminal_metadata_unavailable: this build has no ToolCallDelta::complete
+        - expected:
+          - kind: text
+            text: ' then '
+        - expected: []
+        - expected: []
+        - expected: []
+        - expected: []
+        - expected: []
+        - expected: []
+        - expected:
+          - kind: tool_call
+            name: g
+            arguments: '{"y":"2"}'
+            terminal_metadata_unavailable: this build has no ToolCallDelta::complete
+  text_only:
+    case_key: UNIFIED.3.a
+    stimulus:
+      ref: current
+    observation:
+      value:
+        assembled:
+        - kind: text
+          text: The answer is 42, no tools needed.
+        chunks:
+        - expected:
+          - kind: text
+            text: The answer is 42, no tools needed.
   text_reason_tool_text_reason_tool:
+    case_key: UNIFIED.11.j
+    stimulus:
+      ref: current
     observation:
       value:
         assembled:
@@ -1639,7 +2481,53 @@ changes:
             name: g
             arguments: '{"y":"2"}'
             terminal_metadata_unavailable: this build has no ToolCallDelta::complete
+  text_sandwich:
+    case_key: UNIFIED.8.c
+    stimulus:
+      ref: current
+    observation:
+      value:
+        assembled:
+        - kind: text
+          text: 'Before. '
+        - kind: tool_call
+          name: get_weather
+          arguments:
+            city: Paris
+        - kind: text
+          text: ' After.'
+        chunks:
+        - expected:
+          - kind: text
+            text: 'Before. '
+        - expected: []
+        - expected: []
+        - expected: []
+        - expected: []
+        - expected: []
+        - expected: []
+        - expected:
+          - kind: tool_call
+            name: get_weather
+            arguments: '{"city":"Paris"}'
+            terminal_metadata_unavailable: this build has no ToolCallDelta::complete
+        - expected:
+          - kind: text
+            text: ' After.'
+  tool_block_never_closed_then_text:
+    case_key: UNIFIED.4.a
+    stimulus:
+      ref: current
+    observation:
+      value:
+        assembled: []
+        chunks:
+        - expected: []
+        - expected: []
   tool_in_reason:
+    case_key: UNIFIED.12.b
+    stimulus:
+      ref: current
     observation:
       value:
         assembled:
@@ -1672,6 +2560,9 @@ changes:
             text: ' now answer'
         - expected: []
   tool_in_reason_with_text:
+    case_key: UNIFIED.12.d
+    stimulus:
+      ref: current
     observation:
       value:
         assembled:
@@ -1714,12 +2605,197 @@ changes:
           - kind: text
             text: ' Here you go.'
   tool_markup_only_emits_nothing:
+    case_key: UNIFIED.4.b
+    stimulus:
+      ref: current
     observation:
       value:
         assembled: []
         chunks:
         - expected: []
+  tool_no_close:
+    case_key: UNIFIED.5.b
+    stimulus:
+      ref: current
+  tool_only:
+    case_key: UNIFIED.1.a
+    stimulus:
+      ref: current
+    observation:
+      value:
+        assembled:
+        - kind: tool_call
+          name: get_weather
+          arguments:
+            city: Paris
+        chunks:
+        - expected: []
+        - expected: []
+        - expected: []
+        - expected: []
+        - expected: []
+        - expected: []
+        - expected:
+          - kind: tool_call
+            name: get_weather
+            arguments: '{"city":"Paris"}'
+            terminal_metadata_unavailable: this build has no ToolCallDelta::complete
+  trailing_text_after_tool:
+    case_key: UNIFIED.8.b
+    stimulus:
+      ref: current
+    observation:
+      value:
+        assembled:
+        - kind: tool_call
+          name: get_weather
+          arguments:
+            city: Paris
+        - kind: text
+          text: The forecast shows clear skies for the rest of the week.
+        chunks:
+        - expected: []
+        - expected: []
+        - expected: []
+        - expected: []
+        - expected: []
+        - expected: []
+        - expected:
+          - kind: tool_call
+            name: get_weather
+            arguments: '{"city":"Paris"}'
+            terminal_metadata_unavailable: this build has no ToolCallDelta::complete
+        - expected:
+          - kind: text
+            text: The forecast shows clear skies for the rest of the week.
+  truncated_tool_eof:
+    case_key: UNIFIED.5.a
+    stimulus:
+      ref: current
+    observation:
+      value:
+        assembled:
+        - kind: reasoning
+          text: ok
+        chunks:
+        - expected: []
+        - expected:
+          - kind: reasoning
+            text: ok
+        - expected: []
+        - expected: []
+        - expected: []
+        - expected: []
+        - expected: []
+  two_adjacent_reason_spans:
+    case_key: UNIFIED.10.e
+    stimulus:
+      ref: current
+    observation:
+      value:
+        assembled:
+        - kind: reasoning
+          text: 'first
+
+            second'
+        - kind: text
+          text: done
+        chunks:
+        - expected: []
+        - expected:
+          - kind: reasoning
+            text: first
+        - expected: []
+        - expected: []
+        - expected:
+          - kind: reasoning
+            text: '
+
+              second'
+        - expected: []
+        - expected:
+          - kind: text
+            text: done
+  two_calls:
+    case_key: UNIFIED.2.a
+    stimulus:
+      ref: current
+    observation:
+      value:
+        assembled:
+        - kind: tool_call
+          name: f
+          arguments:
+            x: '1'
+        - kind: tool_call
+          name: g
+          arguments:
+            y: '2'
+        chunks:
+        - expected: []
+        - expected: []
+        - expected: []
+        - expected: []
+        - expected: []
+        - expected: []
+        - expected:
+          - kind: tool_call
+            name: f
+            arguments: '{"x":"1"}'
+            terminal_metadata_unavailable: this build has no ToolCallDelta::complete
+        - expected: []
+        - expected: []
+        - expected: []
+        - expected: []
+        - expected: []
+        - expected: []
+        - expected:
+          - kind: tool_call
+            name: g
+            arguments: '{"y":"2"}'
+            terminal_metadata_unavailable: this build has no ToolCallDelta::complete
+  two_calls_same_name:
+    case_key: UNIFIED.2.b
+    stimulus:
+      ref: current
+    observation:
+      value:
+        assembled:
+        - kind: tool_call
+          name: get_weather
+          arguments:
+            city: Paris
+        - kind: tool_call
+          name: get_weather
+          arguments:
+            city: Tokyo
+        chunks:
+        - expected: []
+        - expected: []
+        - expected: []
+        - expected: []
+        - expected: []
+        - expected: []
+        - expected:
+          - kind: tool_call
+            name: get_weather
+            arguments: '{"city":"Paris"}'
+            terminal_metadata_unavailable: this build has no ToolCallDelta::complete
+        - expected: []
+        - expected: []
+        - expected: []
+        - expected: []
+        - expected: []
+        - expected: []
+        - expected:
+          - kind: tool_call
+            name: get_weather
+            arguments: '{"city":"Tokyo"}'
+            terminal_metadata_unavailable: this build has no ToolCallDelta::complete
   two_reason_spans:
+    case_key: UNIFIED.10.c
+    stimulus:
+      ref: current
     observation:
       value:
         assembled:
@@ -1748,5 +2824,3 @@ changes:
         - expected:
           - kind: text
             text: done
-metadata_changes: {}
-document_overrides: {}

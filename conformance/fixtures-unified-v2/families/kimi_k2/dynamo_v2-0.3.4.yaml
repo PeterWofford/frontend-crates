@@ -1,9 +1,5 @@
-provenance:
-  status: legacy
-  captured_with:
-    dynamo_v2: 0.3.4
-document:
-  mode: unified
+parent: dynamo_v2-0.3.3
+execution: 6075c5db1c8ace97b843383cd61d6bf8b8ce8860d019cae250f717e32ad88378
 changes:
   guided_json_bare_tool_header_recovers_inside_a_thought:
     observation:
@@ -135,5 +131,3 @@ changes:
           - kind: text
             text: '[{"name": "get_weather", "arguments": {"city": "Paris"}}, {"arguments": {"city": "Tokyo"}}]'
         - expected: []
-metadata_changes: {}
-document_overrides: {}

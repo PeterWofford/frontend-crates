@@ -1,11 +1,5 @@
-provenance:
-  status: captured
-  origin:
-    crate_version: 0.6.1
-    source_sha256: 6b3dd4c4938308cae46c18cab3d6ce0d09790116bfd56fd1f0bf2b6725311f50
-    git_commit: f9b3fffecdc02ba7c0a82db499eeafa009274c92
-document:
-  mode: unified
+parent: dynamo_v2-0.6.0
+execution: 361ffea50d4e110988c8c4112274576cc2ac3bc7f3ba178aab08285131539052
 changes:
   arg_marker_in_string:
     case_key: UNIFIED.7-2
@@ -237,39 +231,6 @@ changes:
         - expected: []
   retired__7_3:
     case_key: UNIFIED.7-3
-    stimulus:
-      ref: current
-      semantic_sha256: a65bfb3467013e75c26a53ab1ca362ab1cff6a85f8b05208d6c5cf9d6369e3ae
-    observation:
-      value:
-        assembled:
-        - kind: tool_call
-          name: f
-          arguments:
-            x: " <think>quoted</think> <｜DSML｜ calls> </｜DSML｜ calls> </｜DSML｜ invoke> &amp; \"x\"\\\n "
-        chunks:
-        - expected: []
-        - expected: []
-        - expected: []
-        - expected: []
-        - expected: []
-        - expected: []
-        - expected: []
-        - expected: []
-        - expected: []
-        - expected: []
-        - expected: []
-        - expected: []
-        - expected: []
-        - expected: []
-        - expected: []
-        - expected:
-          - kind: tool_call
-            name: f
-            arguments: '{"x":" <think>quoted</think> <｜DSML｜ calls> </｜DSML｜ calls> </｜DSML｜ invoke> &amp; \"x\"\\\n "}'
-            complete: true
-        - expected: []
-        - expected: []
   text_before_tool:
     case_key: UNIFIED.8-1
   text_between_calls:
@@ -304,9 +265,3 @@ changes:
     case_key: UNIFIED.2-2
   two_reason_spans:
     case_key: UNIFIED.10-3
-metadata_changes:
-  retired__30_14: {}
-  retired__31_33: {}
-  retired__31_40: {}
-  retired__50_1: {}
-document_overrides: {}

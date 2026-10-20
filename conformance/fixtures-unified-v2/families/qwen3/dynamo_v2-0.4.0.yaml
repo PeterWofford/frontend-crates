@@ -1,9 +1,5 @@
-provenance:
-  status: legacy
-  captured_with:
-    dynamo_v2: 0.4.0
-document:
-  mode: unified
+parent: dynamo_v2-0.3.4
+execution: 81f05f2f56e480ce1bf2fbc44eede46a38ca25044154230ac15ee4d2ff79f512
 changes:
   retired__50_a:
     observation:
@@ -79,5 +75,3 @@ changes:
         - expected:
           - kind: text
             text: '[{"name": "get_weather", "arguments": {"city": "Paris"}}, {"arguments": {"city": "Tokyo"}}]'
-metadata_changes: {}
-document_overrides: {}

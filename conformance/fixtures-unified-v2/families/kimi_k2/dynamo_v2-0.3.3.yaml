@@ -1,9 +1,5 @@
-provenance:
-  status: legacy
-  captured_with:
-    dynamo_v2: 0.3.3
-document:
-  mode: unified
+parent: dynamo_v2-0.3.2
+execution: 1df033d891b8d401ed6b0234999e096a57fede0bf949bbea55add132ad598374
 changes:
   arg_marker_in_string:
     observation:
@@ -80,6 +76,37 @@ changes:
             name: get_weather
             arguments: '{"city":"Paris"}'
             terminal_metadata_unavailable: this build has no ToolCallDelta::complete
+        - expected: []
+  deepseek_v41_mixed_control_text_in_string:
+    observation:
+      value:
+        assembled:
+        - kind: tool_call
+          name: f
+          arguments:
+            x: " <think>quoted</think> <|tool_calls_section_begin|> <|tool_calls_section_end|> <|tool_call_end|> &amp; \"x\"\\\n "
+        chunks:
+        - expected: []
+        - expected: []
+        - expected: []
+        - expected: []
+        - expected: []
+        - expected: []
+        - expected: []
+        - expected: []
+        - expected: []
+        - expected: []
+        - expected: []
+        - expected: []
+        - expected: []
+        - expected: []
+        - expected: []
+        - expected:
+          - kind: tool_call
+            name: f
+            arguments: '{"x":" <think>quoted</think> <|tool_calls_section_begin|> <|tool_calls_section_end|> <|tool_call_end|> &amp; \"x\"\\\n "}'
+            terminal_metadata_unavailable: this build has no ToolCallDelta::complete
+        - expected: []
         - expected: []
   guided_json_after_reasoning:
     observation:
@@ -734,6 +761,36 @@ changes:
         - expected:
           - kind: text
             text: ' { example }" stays visible. {"name": "get_weather", "arguments": {"city": "Paris"}}'
+  malformed_json_then_two_valid_calls:
+    observation:
+      value:
+        assembled:
+        - kind: tool_call
+          name: bad
+          arguments: {}
+        - kind: tool_call
+          name: echo
+          arguments:
+            value: é
+        - kind: tool_call
+          name: echo
+          arguments:
+            value: Café
+        chunks:
+        - expected:
+          - kind: tool_call
+            name: bad
+            arguments: '{"x":"unfinished'
+            terminal_metadata_unavailable: this build has no ToolCallDelta::complete
+          - kind: tool_call
+            name: echo
+            arguments: '{"value":"é"}'
+            terminal_metadata_unavailable: this build has no ToolCallDelta::complete
+          - kind: tool_call
+            name: echo
+            arguments: '{"value":"Café"}'
+            terminal_metadata_unavailable: this build has no ToolCallDelta::complete
+        - expected: []
   native_quoted_control_in_reasoning:
     observation:
       value:
@@ -1778,5 +1835,3 @@ changes:
         - expected:
           - kind: text
             text: done
-metadata_changes: {}
-document_overrides: {}

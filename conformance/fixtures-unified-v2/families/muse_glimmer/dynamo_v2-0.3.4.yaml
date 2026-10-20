@@ -1,9 +1,5 @@
-provenance:
-  status: legacy
-  captured_with:
-    dynamo_v2: 0.3.4
-document:
-  mode: unified
+parent: dynamo_v2-0.3.3
+execution: 66602e09f08025f5f7c02569e5bf7dcdb98984cfe31dd7a17136fd2a3886fe2e
 changes:
   guided_json_after_reasoning:
     observation:
@@ -976,5 +972,3 @@ changes:
             name: get_weather
             arguments: '{"city": "Paris"}'
             terminal_metadata_unavailable: this build has no ToolCallDelta::complete
-metadata_changes: {}
-document_overrides: {}
