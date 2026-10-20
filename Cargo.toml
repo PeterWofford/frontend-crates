@@ -108,3 +108,6 @@ opt-level = 2
 # Harmony repeatedly builds the allowed-special-token set during parser setup.
 [profile.test.package.openai-harmony]
 opt-level = 2
+
+[profile.test.package.tiktoken-rs]
+opt-level = 2

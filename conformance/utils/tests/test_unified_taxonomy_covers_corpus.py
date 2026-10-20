@@ -16,6 +16,7 @@ the point the case is added, and name the file to edit.
 from __future__ import annotations
 
 from collections import defaultdict
+from dataclasses import replace
 import json
 import re
 import sys
@@ -1023,6 +1024,16 @@ def _packed_layer(root: Path, directory: str, fam: str, field_map, scenarios):
 def committed_unified_store():
     # These corpus guards only read the same validated history.
     return unified_history.load_store(UTILS.parent / "fixtures-unified-v2")
+
+
+def _materialized_unified_root(tmp_path: Path, store) -> Path:
+    root = tmp_path / "unified"
+    # This oracle compares authored inputs/goldens; capture history has its own gate.
+    unified_history.materialize_store(
+        UTILS.parent / "fixtures-unified-v2", root, store=replace(store, histories={}),
+    )
+    return root
+
 
 
 def _taxonomy_scenarios(fam: str, store):
