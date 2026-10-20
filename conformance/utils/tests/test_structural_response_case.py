@@ -32,8 +32,8 @@ def _assert_bound_columns(states, case_id, digest):
         assert state[case_id]["stimulus"]["semantic_sha256"] == digest
 
 
-def test_structural_request_is_bound_in_every_retained_dynamo_column():
-    store = unified_history.load_store(Path(__file__).resolve().parents[2] / "fixtures-unified-v2")
+def test_structural_request_is_bound_in_every_retained_dynamo_column(committed_unified_store):
+    store = committed_unified_store
     for family in scenario_families(SCENARIO):
         history = store.histories[(family, "dynamo_v2")]
         case_id = next(key for key, case in history.family.cases.items() if case["scenario"] == SCENARIO)

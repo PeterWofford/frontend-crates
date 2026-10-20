@@ -1039,12 +1039,6 @@ def _packed_layer(root: Path, directory: str, fam: str, field_map, scenarios):
     return out
 
 
-@pytest.fixture(scope="module")
-def committed_unified_store():
-    # These corpus guards read the same history without mutating its records.
-    return unified_history.load_store(UTILS.parent / "fixtures-unified-v2")
-
-
 def _materialized_unified_root(tmp_path: Path, store) -> Path:
     root = tmp_path / "unified"
     # This oracle compares authored inputs/goldens; capture history has its own gate.

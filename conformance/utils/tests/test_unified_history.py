@@ -1337,9 +1337,8 @@ def test_materialized_null_labels_follow_stable_owners_after_number_swap(tmp_pat
     ("qwen3", ("be1520f44605ed60b906aa03f7847a9210631d43cec8c967f55ac99186d496bd",
                "697ee3feadda33be06413278e6f213f8361a060793518381713cc19a771c2f4d")),
 ])
-def test_vllm_rust_guided_json_recaptures_preserve_unbound_history(family, original_digests):
-    store_root = Path(__file__).resolve().parents[3] / "conformance/fixtures-unified-v2"
-    store = unified_history.load_store(store_root)
+def test_vllm_rust_guided_json_recaptures_preserve_unbound_history(family, original_digests, committed_unified_store):
+    store = committed_unified_store
     history = store.histories[(family, "vllm_rust")]
     historical = history.resolve("vllm_rust-0.25.1")
     recaptured = history.resolve("vllm_rust-0.26.0")
