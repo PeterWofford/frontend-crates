@@ -22,13 +22,4 @@ changes:
             text: ' '
         - expected: []
 metadata_changes: {}
-document_overrides:
-  orphan_close_after_prose:
-    capture_provenance:
-      captured_with:
-        dynamo_v2: 0.9.7
-      capture_origin:
-        crate_version: 0.9.7
-        source_sha256: 48d3aaed44b6a96596bf3c45c1904de1c4fb72ba6b26d63c23be837732024c31
-        git_commit: ff0255eb82bdb656da2600b3ce9dfb0bae2aa524
-      inherited_from: null
+document_overrides: {}

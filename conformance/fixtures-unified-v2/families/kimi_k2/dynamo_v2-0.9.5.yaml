@@ -8,7 +8,11 @@ document:
   mode: unified
 changes: {}
 metadata_changes:
-  guided_response_native_wrapper_whitespace_before_prose: {}
+  gpt_oss_tool_body_whitespace:
+    init:
+      starting_state: None
+      tool_output_mode: Native
+      named_tool: null
 document_overrides:
   gpt_oss_tool_body_whitespace:
     capture_provenance:

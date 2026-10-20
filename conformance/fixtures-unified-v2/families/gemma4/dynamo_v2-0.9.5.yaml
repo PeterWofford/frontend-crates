@@ -7,8 +7,7 @@ provenance:
 document:
   mode: unified
 changes: {}
-metadata_changes:
-  guided_response_native_wrapper_whitespace_before_prose: {}
+metadata_changes: {}
 document_overrides:
   guided_response_native_wrapper_whitespace_before_prose:
     capture_provenance:
