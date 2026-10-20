@@ -86,6 +86,31 @@ def _run_main(tmp_path, monkeypatch, manifest, argv=()):
     extract_fixtures.main()
 
 
+def test_legacy_only_keeps_full_snapshot_identity_and_materialization_separate(tmp_path, monkeypatch, cache_root, capsys):
+    legacy = _shard("toolcalling/a.tar.gz", "legacy")
+    unified = {**_shard(extract_fixtures.fixture_disposition.UNIFIED_HISTORY_PATH, "unified"), "format": "unified-history"}
+    manifest = {"snapshot": "20260101_000000", "shards": [legacy, unified]}
+    materialized = []
+
+    def materialize(shard, source, destination, *, derived_release_versions=None, verbose=False):
+        materialized.append(shard["path"])
+        (destination / ("unified" if shard.get("format") == "unified-history" else "toolcalling")).mkdir(parents=True)
+
+    monkeypatch.setattr(extract_fixtures, "materialize_shard", materialize)
+    _run_main(tmp_path, monkeypatch, manifest, ["--legacy-only"])
+    legacy_root = Path(capsys.readouterr().out.strip().splitlines()[-1])
+    assert materialized == [legacy["path"]]
+    assert not (legacy_root / "unified").exists()
+    _run_main(tmp_path, monkeypatch, manifest)
+    full_root = Path(capsys.readouterr().out.strip().splitlines()[-1])
+    assert full_root != legacy_root
+    assert (full_root / "unified").is_dir()
+    assert materialized == [legacy["path"], legacy["path"], unified["path"]]
+    _run_main(tmp_path, monkeypatch, manifest, ["--legacy-only"])
+    assert Path(capsys.readouterr().out.strip().splitlines()[-1]) == legacy_root
+    assert materialized == [legacy["path"], legacy["path"], unified["path"]]
+
+
 def test_concurrent_symlink_publishers_do_not_share_a_temp_path(tmp_path, monkeypatch):
     """Two publishers may race on the stable link, but each must own its temporary link until the atomic replace."""
     cache = tmp_path / "cache"
@@ -365,9 +390,8 @@ def test_plain_run_after_full_refresh_resolves_to_the_new_generation(cache_root,
     """MUST finding (blind audit of the `--full-refresh` redesign): a plain
     (no-flag) run must resolve to whatever generation `--full-refresh` most
     recently published, never silently fall back to the abandoned original.
-    `_common.sh` runs this script with no flags before every conformance
-    test/render, so an invisible refresh means the fix `--full-refresh` was
-    run to apply never actually takes effect for anything downstream --
+    An invisible refresh means the fix `--full-refresh` was run to apply
+    never actually takes effect for a subsequent plain reader --
     reproduced against the unmodified module before this fix: the very next
     plain run flipped the symlink straight back to the corrupted original.
     """
