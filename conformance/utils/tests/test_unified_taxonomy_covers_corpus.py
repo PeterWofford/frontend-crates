@@ -38,6 +38,7 @@ from schema_cases import CONFORMANCE_CASES, schema_arguments  # noqa: E402
 import unified_history  # noqa: E402
 import unified_taxonomy as taxonomy  # noqa: E402
 from capture_stimulus import _without_synthetic_finish_step  # noqa: E402
+from dynamo_version import dynamo_v2_label  # noqa: E402
 from fixture_disposition import historical_unified_case_key  # noqa: E402
 from gen_unified_golden import (  # noqa: E402
     CLEAN,
@@ -1146,11 +1147,16 @@ def test_shared_reference_cases_start_at_their_introduction(committed_unified_st
 def test_retained_unified_captures_cover_the_current_corpus(committed_unified_store):
     store = committed_unified_store
     captured = set()
+    current_version = unified_history._capture_release_sort_key(dynamo_v2_label(UTILS.parents[1]))
     for (family, implementation), history in store.histories.items():
         if implementation != "dynamo_v2":
             continue
-        capture_id = history.ordered_capture_ids()[-1]
-        for case_id in history.resolve(capture_id):
+        capture_ids = [
+            capture_id for capture_id in history.ordered_capture_ids()
+            if unified_history._capture_release_sort_key(history.captures[capture_id]["runtime_version"]) <= current_version
+        ]
+        assert capture_ids, f"no retained captures at or before the active version for {family}"
+        for case_id in history.resolve(capture_ids[-1]):
             case = history.family.cases[case_id]
             case_key = case["display_id"] or case["historical_ids"][0]
             captured.add((family, historical_unified_case_key(family, case_key)))

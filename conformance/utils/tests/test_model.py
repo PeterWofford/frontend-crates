@@ -938,8 +938,9 @@ def test_unified_selector_uses_source_checkout_with_or_without_staging(tmp_path,
 def test_unified_source_selection_inherits_previous_family_capture(
     tmp_path, monkeypatch, current_present, capture_failure
 ):
-    selected = "0.6.1"
-    previous = "0.6.0"
+    selected = "0.7.28"
+    previous = "0.7.27"
+    experimental = "0.9.8"
     scenario, family = "text_only", "gemma4"
     generator = table.gen_unified_golden
     authored = generator.build_cases(family)[f"UNIFIED.{scenario}.{family}"]
@@ -955,7 +956,7 @@ def test_unified_source_selection_inherits_previous_family_capture(
                    "chunks": [{"delta_text": authored["input"]}]},
         "golden": {"assembled": authored["golden"]},
     }
-    for version in [previous] + ([selected] if current_present else []):
+    for version in [previous] + ([selected] if current_present else []) + [experimental]:
         events = [{"kind": "text", "text": version}]
         records[f"dynamo_v2-{version}"] = (
             {capture_failure: "capture could not run"} if capture_failure and version == selected else
@@ -970,7 +971,7 @@ def test_unified_source_selection_inherits_previous_family_capture(
     cases, _caps, versions = table._load_unified_fixtures(tmp_path)
     case = next(case for case in cases if case["family"] == family)
     assert versions["dynamo_v2"] == selected
-    assert set(versions["dynamo_v2_all"]) == {previous, selected}
+    assert set(versions["dynamo_v2_all"]) == {previous, selected, experimental}
     assert not case["dynamo_missing"]
     expected_version = selected if current_present else previous
     assert case["dynamo"] == (
@@ -982,7 +983,9 @@ def test_unified_source_selection_inherits_previous_family_capture(
     assert candidates["dynamo"]["version"] == selected
     assert candidates["dynamo"]["label"] == table._full_label("dynamo_v2", selected, "stream")
     assert candidates[f"dynamo@{previous}"]["label"] == table._full_label("dynamo_v2", previous, "stream")
-    assert {key for key in candidates if key.startswith("dynamo@")} == {f"dynamo@{previous}"}
+    assert {key for key in candidates if key.startswith("dynamo@")} == {
+        f"dynamo@{previous}", f"dynamo@{experimental}"
+    }
     cell = next(row for row in tab["rows"] if row["family"] == family)["cells"][scenario]
     current = next(candidate for candidate in cell["tooltip"]["candidates"] if candidate["key"] == "dynamo")
     assert current["label"] == candidates["dynamo"]["label"]
