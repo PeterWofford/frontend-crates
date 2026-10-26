@@ -279,7 +279,10 @@ pub fn fixture_name(path: &Path) -> String {
 }
 
 /// Fold prior family captures through the current parser release checkpoint.
-pub const STREAM_DYNAMO_V2_CURRENT_CAPTURE: &str = "dynamo_v2-0.7.24";
+pub const STREAM_DYNAMO_V2_CURRENT_CAPTURE: &str = "dynamo_v2-0.8.0";
+
+// Batch-on-stream retains its own snapshot when the streaming capture advances.
+pub const BATCH_ON_STREAM_DYNAMO_V2_CAPTURE: &str = "dynamo_v2-0.7.24";
 
 // Consumers may reuse verified archives in tagless clones; producers still require tags.
 pub const UNIFIED_DYNAMO_V2_CURRENT_CAPTURE: &str = "dynamo_v2-current";
@@ -615,6 +618,24 @@ pub fn unified_families() -> std::collections::BTreeMap<String, UnifiedFamily> {
     doc.unified
 }
 
+/// Scope a producer run without changing the shared corpus or its family registry.
+pub fn capture_families() -> Option<std::collections::BTreeSet<String>> {
+    let registered = unified_families();
+    let requested = std::env::var("CONFORMANCE_CAPTURE_FAMILIES").ok()?;
+    let selected: std::collections::BTreeSet<String> = requested
+        .split(',')
+        .map(|name| name.trim().to_string())
+        .collect();
+    assert!(!selected.is_empty(), "empty capture family selection");
+    for family in &selected {
+        assert!(
+            registered.contains_key(family),
+            "unknown capture family: {family}"
+        );
+    }
+    Some(selected)
+}
+
 /// One family, or a panic naming the manifest — a family reaching the harness without a
 /// declaration is a missing row, and saying so beats a generic "no parser mapping".
 pub fn unified_family(corpus_name: &str) -> UnifiedFamily {
@@ -637,6 +658,8 @@ pub fn unified_family(corpus_name: &str) -> UnifiedFamily {
 /// parsed as `Native` because its input did not happen to start with `[`.
 #[derive(Debug, Clone, Default, serde::Deserialize, serde::Serialize, PartialEq)]
 pub struct Init {
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub preserve_message_phases: bool,
     #[serde(default)]
     pub starting_state: String,
     #[serde(default)]
@@ -663,6 +686,9 @@ impl Init {
             "tool_output_mode": if self.tool_output_mode.is_empty() { "Native" } else { &self.tool_output_mode },
             "named_tool": self.named_tool,
         });
+        if self.preserve_message_phases {
+            value["preserve_message_phases"] = serde_json::json!(true);
+        }
         if let Some(request) = &self.structural_tag {
             value["structural_tag"] =
                 serde_json::to_value(request).expect("structural-tag request");
@@ -718,6 +744,10 @@ impl Init {
                     == dynamo_parsers_v2::UnifiedParserStartingState::Reasoning,
             })?
             .ok_or_else(|| anyhow::anyhow!("response schema produced no structural tag"))?;
+        let stop_tokens: &[&str] = match family {
+            "gpt_oss" | "harmony" => &["<|return|>"],
+            _ => &[],
+        };
         let script = std::env::var_os("CONFORMANCE_STRUCTURAL_TAG_CHECKER")
             .map(PathBuf::from)
             .unwrap_or_else(|| {
@@ -752,6 +782,7 @@ impl Init {
             .expect("piped verifier input")
             .write_all(&serde_json::to_vec(&serde_json::json!({
                 "structural_tag": tag, "chunks": chunks, "rejected": request.rejected,
+                "stop_tokens": stop_tokens,
             }))?)?;
         let output = child.wait_with_output()?;
         anyhow::ensure!(
@@ -804,6 +835,7 @@ impl Init {
         parser: &mut Box<dyn dynamo_parsers_v2::UnifiedParser>,
     ) -> anyhow::Result<()> {
         use dynamo_parsers_v2::{InvalidGuidedPayloadPolicy, UnifiedParserInit};
+        parser.preserve_message_phases(self.preserve_message_phases);
         parser.initialize_request(UnifiedParserInit {
             starting_state: self.starting_state(),
             tool_output_mode: self.output_mode(),

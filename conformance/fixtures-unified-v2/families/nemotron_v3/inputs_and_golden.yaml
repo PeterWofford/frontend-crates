@@ -18958,103 +18958,58 @@ cases:
         name: h
         arguments:
           x: '3'
-  blank_framing_after_reasoning:
+  xml_custom_type_double_quoted_object:
     lifecycle: active
-    scenario: blank_framing_after_reasoning
-    description: 'Reasoning, then a newline-framed call and nothing visible: reasoning and the call survive. Nemotron V3 emits no framing text; every other family keeps it.'
+    scenario: xml_custom_type_double_quoted_object
+    description: 'Native XML compatibility: {"a":1} under type custom must produce {"a": 1}. Custom types use legacy literal evaluation; an explicit string type preserves the original text.'
     policy:
-    - P8
-    - I2
-    display_id: UNIFIED.11-blank_framing_after_reasoning
+    - I7
+    display_id: UNIFIED.7-xml_custom_type_double_quoted_object
     historical_ids: []
     request:
-      input: '</think><think>Check weather.</think>
+      input: '</think><tool_call>
 
+        <function=schema_probe>
 
-        <tool_call>
+        <parameter=value>
 
-        <function=get_weather>
-
-        <parameter=city>
-
-        Paris
+        {"a":1}
 
         </parameter>
 
         </function>
 
-        </tool_call>
-
-        '
+        </tool_call>'
       init:
         starting_state: None
         tool_output_mode: Native
         named_tool: null
       finish_reason: stop
       tools:
-      - name: get_weather
+      - name: schema_probe
         parameters:
           type: object
           properties:
-            city:
-              type: string
-      - name: f
-        parameters:
-          type: object
-          properties:
-            x:
-              type: string
-      - name: g
-        parameters:
-          type: object
-          properties:
-            y:
-              type: string
-      - name: run
-        parameters:
-          type: object
-          properties:
-            cmd:
-              type: string
-      - name: log
-        parameters:
-          type: object
-          properties:
-            note:
-              type: string
-      - name: sum_values
-        parameters:
-          type: object
-          properties:
-            values:
-              type: array
-              items:
-                type: number
-      - name: functions.
-        parameters:
-          type: object
-          properties: {}
+            value:
+              type: custom
+          required:
+          - value
+          additionalProperties: false
+        strict: false
       chunks:
       - delta_text: </think>
-      - delta_text: <think>
-      - delta_text: Check weather.
-      - delta_text: </think>
-      - delta_text: '
-
-
-          '
       - delta_text: <tool_call>
       - delta_text: '
 
           '
-      - delta_text: <function=get_weather>
+      - delta_text: <function=schema_probe>
       - delta_text: '
 
           '
-      - delta_text: <parameter=city>
+      - delta_text: <parameter=value>
       - delta_text: '
 
-          Paris
+          {"a":1}
 
           '
       - delta_text: </parameter>
@@ -19066,320 +19021,66 @@ cases:
 
           '
       - delta_text: </tool_call>
-      - delta_text: '
-
-          '
       - delta_text: ‹finish›
     golden:
       assembled:
-      - kind: reasoning
-        text: Check weather.
       - kind: tool_call
-        name: get_weather
+        name: schema_probe
         arguments:
-          city: Paris
-  blank_output_without_call:
+          value:
+            a: 1
+  xml_custom_type_single_quoted_object:
     lifecycle: active
-    scenario: blank_output_without_call
-    description: Whitespace-only output with no call is visible content and is kept unchanged by every family.
+    scenario: xml_custom_type_single_quoted_object
+    description: 'Native XML compatibility: {''a'':1} under type custom must produce {"a": 1}. Custom types use legacy literal evaluation; an explicit string type preserves the original text.'
     policy:
-    - P8
-    - I1
-    display_id: UNIFIED.3-blank_output_without_call
+    - I7
+    display_id: UNIFIED.7-xml_custom_type_single_quoted_object
     historical_ids: []
     request:
-      input: '</think>
+      input: '</think><tool_call>
 
+        <function=schema_probe>
 
-        '
+        <parameter=value>
+
+        {''a'':1}
+
+        </parameter>
+
+        </function>
+
+        </tool_call>'
       init:
         starting_state: None
         tool_output_mode: Native
         named_tool: null
       finish_reason: stop
       tools:
-      - name: get_weather
+      - name: schema_probe
         parameters:
           type: object
           properties:
-            city:
-              type: string
-      - name: f
-        parameters:
-          type: object
-          properties:
-            x:
-              type: string
-      - name: g
-        parameters:
-          type: object
-          properties:
-            y:
-              type: string
-      - name: run
-        parameters:
-          type: object
-          properties:
-            cmd:
-              type: string
-      - name: log
-        parameters:
-          type: object
-          properties:
-            note:
-              type: string
-      - name: sum_values
-        parameters:
-          type: object
-          properties:
-            values:
-              type: array
-              items:
-                type: number
-      - name: functions.
-        parameters:
-          type: object
-          properties: {}
+            value:
+              type: custom
+          required:
+          - value
+          additionalProperties: false
+        strict: false
       chunks:
       - delta_text: </think>
-      - delta_text: '
-
-
-          '
-      - delta_text: ‹finish›
-    golden:
-      assembled:
-      - kind: text
-        text: '
-
-
-          '
-  blank_framing_between_calls_single_chunk:
-    lifecycle: active
-    scenario: blank_framing_between_calls_single_chunk
-    description: Two calls framed by newlines before, between, and after them, delivered in one push. Nemotron V3 emits no text; every other family keeps the newlines.
-    policy:
-    - P8
-    - I6
-    display_id: UNIFIED.8-blank_framing_between_calls_single_chunk
-    historical_ids: []
-    request:
-      input: '</think>
-
-        <tool_call>
-
-        <function=get_weather>
-
-        <parameter=city>
-
-        Paris
-
-        </parameter>
-
-        </function>
-
-        </tool_call>
-
-
-        <tool_call>
-
-        <function=get_weather>
-
-        <parameter=city>
-
-        Tokyo
-
-        </parameter>
-
-        </function>
-
-        </tool_call>
-
-        '
-      init:
-        starting_state: None
-        tool_output_mode: Native
-        named_tool: null
-      finish_reason: stop
-      tools:
-      - name: get_weather
-        parameters:
-          type: object
-          properties:
-            city:
-              type: string
-      - name: f
-        parameters:
-          type: object
-          properties:
-            x:
-              type: string
-      - name: g
-        parameters:
-          type: object
-          properties:
-            y:
-              type: string
-      - name: run
-        parameters:
-          type: object
-          properties:
-            cmd:
-              type: string
-      - name: log
-        parameters:
-          type: object
-          properties:
-            note:
-              type: string
-      - name: sum_values
-        parameters:
-          type: object
-          properties:
-            values:
-              type: array
-              items:
-                type: number
-      - name: functions.
-        parameters:
-          type: object
-          properties: {}
-      chunks:
-      - delta_text: '</think>
-
-          <tool_call>
-
-          <function=get_weather>
-
-          <parameter=city>
-
-          Paris
-
-          </parameter>
-
-          </function>
-
-          </tool_call>
-
-
-          <tool_call>
-
-          <function=get_weather>
-
-          <parameter=city>
-
-          Tokyo
-
-          </parameter>
-
-          </function>
-
-          </tool_call>
-
-          '
-      - delta_text: ‹finish›
-    golden:
-      assembled:
-      - kind: tool_call
-        name: get_weather
-        arguments:
-          city: Paris
-      - kind: tool_call
-        name: get_weather
-        arguments:
-          city: Tokyo
-  blank_framing_tool_only:
-    lifecycle: active
-    scenario: blank_framing_tool_only
-    description: A tool-only turn frames its call with a newline on each side, as Nemotron emits it. The tag-aligned schedule delivers each newline in its own chunk. Nemotron V3 emits no text; every other family keeps the newlines.
-    policy:
-    - P8
-    - I5
-    display_id: UNIFIED.8-blank_framing_tool_only
-    historical_ids: []
-    request:
-      input: '</think>
-
-        <tool_call>
-
-        <function=get_weather>
-
-        <parameter=city>
-
-        Paris
-
-        </parameter>
-
-        </function>
-
-        </tool_call>
-
-        '
-      init:
-        starting_state: None
-        tool_output_mode: Native
-        named_tool: null
-      finish_reason: stop
-      tools:
-      - name: get_weather
-        parameters:
-          type: object
-          properties:
-            city:
-              type: string
-      - name: f
-        parameters:
-          type: object
-          properties:
-            x:
-              type: string
-      - name: g
-        parameters:
-          type: object
-          properties:
-            y:
-              type: string
-      - name: run
-        parameters:
-          type: object
-          properties:
-            cmd:
-              type: string
-      - name: log
-        parameters:
-          type: object
-          properties:
-            note:
-              type: string
-      - name: sum_values
-        parameters:
-          type: object
-          properties:
-            values:
-              type: array
-              items:
-                type: number
-      - name: functions.
-        parameters:
-          type: object
-          properties: {}
-      chunks:
-      - delta_text: </think>
-      - delta_text: '
-
-          '
       - delta_text: <tool_call>
       - delta_text: '
 
           '
-      - delta_text: <function=get_weather>
+      - delta_text: <function=schema_probe>
       - delta_text: '
 
           '
-      - delta_text: <parameter=city>
+      - delta_text: <parameter=value>
       - delta_text: '
 
-          Paris
+          {''a'':1}
 
           '
       - delta_text: </parameter>
@@ -19391,110 +19092,66 @@ cases:
 
           '
       - delta_text: </tool_call>
-      - delta_text: '
-
-          '
       - delta_text: ‹finish›
     golden:
       assembled:
       - kind: tool_call
-        name: get_weather
+        name: schema_probe
         arguments:
-          city: Paris
-  blank_framing_with_prose:
+          value:
+            a: 1
+  xml_string_type_double_quoted_object:
     lifecycle: active
-    scenario: blank_framing_with_prose
-    description: 'Visible prose before the call: the turn has visible text, so every whitespace byte, including the newline after the call, is kept by every family.'
+    scenario: xml_string_type_double_quoted_object
+    description: 'Native XML compatibility: {"a":1} under type string must produce "{\"a\":1}". Custom types use legacy literal evaluation; an explicit string type preserves the original text.'
     policy:
-    - P8
-    - I1
-    display_id: UNIFIED.8-blank_framing_with_prose
+    - I7
+    display_id: UNIFIED.7-xml_string_type_double_quoted_object
     historical_ids: []
     request:
-      input: '</think>Pressing it now.
+      input: '</think><tool_call>
 
+        <function=schema_probe>
 
-        <tool_call>
+        <parameter=value>
 
-        <function=get_weather>
-
-        <parameter=city>
-
-        Paris
+        {"a":1}
 
         </parameter>
 
         </function>
 
-        </tool_call>
-
-        '
+        </tool_call>'
       init:
         starting_state: None
         tool_output_mode: Native
         named_tool: null
       finish_reason: stop
       tools:
-      - name: get_weather
+      - name: schema_probe
         parameters:
           type: object
           properties:
-            city:
+            value:
               type: string
-      - name: f
-        parameters:
-          type: object
-          properties:
-            x:
-              type: string
-      - name: g
-        parameters:
-          type: object
-          properties:
-            y:
-              type: string
-      - name: run
-        parameters:
-          type: object
-          properties:
-            cmd:
-              type: string
-      - name: log
-        parameters:
-          type: object
-          properties:
-            note:
-              type: string
-      - name: sum_values
-        parameters:
-          type: object
-          properties:
-            values:
-              type: array
-              items:
-                type: number
-      - name: functions.
-        parameters:
-          type: object
-          properties: {}
+          required:
+          - value
+          additionalProperties: false
+        strict: false
       chunks:
       - delta_text: </think>
-      - delta_text: 'Pressing it now.
-
-
-          '
       - delta_text: <tool_call>
       - delta_text: '
 
           '
-      - delta_text: <function=get_weather>
+      - delta_text: <function=schema_probe>
       - delta_text: '
 
           '
-      - delta_text: <parameter=city>
+      - delta_text: <parameter=value>
       - delta_text: '
 
-          Paris
+          {"a":1}
 
           '
       - delta_text: </parameter>
@@ -19506,22 +19163,530 @@ cases:
 
           '
       - delta_text: </tool_call>
-      - delta_text: '
-
-          '
       - delta_text: ‹finish›
     golden:
       assembled:
-      - kind: text
-        text: 'Pressing it now.
-
-
-          '
       - kind: tool_call
-        name: get_weather
+        name: schema_probe
         arguments:
-          city: Paris
-      - kind: text
-        text: '
+          value: '{"a":1}'
+  xml_string_type_single_quoted_object:
+    lifecycle: active
+    scenario: xml_string_type_single_quoted_object
+    description: 'Native XML compatibility: {''a'':1} under type string must produce "{''a'':1}". Custom types use legacy literal evaluation; an explicit string type preserves the original text.'
+    policy:
+    - I7
+    display_id: UNIFIED.7-xml_string_type_single_quoted_object
+    historical_ids: []
+    request:
+      input: '</think><tool_call>
+
+        <function=schema_probe>
+
+        <parameter=value>
+
+        {''a'':1}
+
+        </parameter>
+
+        </function>
+
+        </tool_call>'
+      init:
+        starting_state: None
+        tool_output_mode: Native
+        named_tool: null
+      finish_reason: stop
+      tools:
+      - name: schema_probe
+        parameters:
+          type: object
+          properties:
+            value:
+              type: string
+          required:
+          - value
+          additionalProperties: false
+        strict: false
+      chunks:
+      - delta_text: </think>
+      - delta_text: <tool_call>
+      - delta_text: '
 
           '
+      - delta_text: <function=schema_probe>
+      - delta_text: '
+
+          '
+      - delta_text: <parameter=value>
+      - delta_text: '
+
+          {''a'':1}
+
+          '
+      - delta_text: </parameter>
+      - delta_text: '
+
+          '
+      - delta_text: </function>
+      - delta_text: '
+
+          '
+      - delta_text: </tool_call>
+      - delta_text: ‹finish›
+    golden:
+      assembled:
+      - kind: tool_call
+        name: schema_probe
+        arguments:
+          value: '{''a'':1}'
+  dotted_name_minimal:
+    lifecycle: active
+    scenario: dotted_name_minimal
+    description: A native call to a.b preserves the complete name and empty arguments.
+    policy: []
+    display_id: UNIFIED.1-dotted_name_minimal
+    historical_ids: []
+    request:
+      input: '</think><tool_call>
+
+        <function=a.b>
+
+
+        </function>
+
+        </tool_call>'
+      init:
+        starting_state: None
+        tool_output_mode: Native
+        named_tool: null
+      finish_reason: stop
+      tools:
+      - name: a.b
+        parameters:
+          type: object
+          properties: {}
+          required: []
+          additionalProperties: false
+      chunks:
+      - delta_text: </think><tool_call>
+      - delta_text: '
+
+          '
+      - delta_text: <function=a.b>
+      - delta_text: '
+
+
+          '
+      - delta_text: </function>
+      - delta_text: '
+
+          '
+      - delta_text: </tool_call>
+      - delta_text: ‹finish›
+    golden:
+      assembled:
+      - kind: tool_call
+        name: a.b
+        arguments: {}
+  dotted_name_mixed_punctuation:
+    lifecycle: active
+    scenario: dotted_name_mixed_punctuation
+    description: 'A native call to my-tool.v2 preserves both punctuation characters and its Beijing argument (#416, #423).'
+    policy: []
+    display_id: UNIFIED.1-dotted_name_mixed_punctuation
+    historical_ids: []
+    request:
+      input: '</think><tool_call>
+
+        <function=my-tool.v2>
+
+        <parameter=location>
+
+        Beijing
+
+        </parameter>
+
+        </function>
+
+        </tool_call>'
+      init:
+        starting_state: None
+        tool_output_mode: Native
+        named_tool: null
+      finish_reason: stop
+      tools:
+      - name: my-tool.v2
+        parameters:
+          type: object
+          properties:
+            location:
+              type: string
+          required:
+          - location
+          additionalProperties: false
+      chunks:
+      - delta_text: </think><tool_call>
+      - delta_text: '
+
+          '
+      - delta_text: <function=my-tool.v2>
+      - delta_text: '
+
+          '
+      - delta_text: <parameter=location>
+      - delta_text: '
+
+          Beijing
+
+          '
+      - delta_text: </parameter>
+      - delta_text: '
+
+          '
+      - delta_text: </function>
+      - delta_text: '
+
+          '
+      - delta_text: </tool_call>
+      - delta_text: ‹finish›
+    golden:
+      assembled:
+      - kind: tool_call
+        name: my-tool.v2
+        arguments:
+          location: Beijing
+  dotted_name_multiple_segments:
+    lifecycle: active
+    scenario: dotted_name_multiple_segments
+    description: A native call preserves every segment of server.tools.weather.
+    policy: []
+    display_id: UNIFIED.1-dotted_name_multiple_segments
+    historical_ids: []
+    request:
+      input: '</think><tool_call>
+
+        <function=server.tools.weather>
+
+        <parameter=location>
+
+        Beijing
+
+        </parameter>
+
+        </function>
+
+        </tool_call>'
+      init:
+        starting_state: None
+        tool_output_mode: Native
+        named_tool: null
+      finish_reason: stop
+      tools:
+      - name: server.tools.weather
+        parameters:
+          type: object
+          properties:
+            location:
+              type: string
+          required:
+          - location
+          additionalProperties: false
+      chunks:
+      - delta_text: </think><tool_call>
+      - delta_text: '
+
+          '
+      - delta_text: <function=server.tools.weather>
+      - delta_text: '
+
+          '
+      - delta_text: <parameter=location>
+      - delta_text: '
+
+          Beijing
+
+          '
+      - delta_text: </parameter>
+      - delta_text: '
+
+          '
+      - delta_text: </function>
+      - delta_text: '
+
+          '
+      - delta_text: </tool_call>
+      - delta_text: ‹finish›
+    golden:
+      assembled:
+      - kind: tool_call
+        name: server.tools.weather
+        arguments:
+          location: Beijing
+  dotted_name_shared_prefix:
+    lifecycle: active
+    scenario: dotted_name_shared_prefix
+    description: Two native calls preserve server.weather then server.time, with distinct arguments and no protocol text.
+    policy: []
+    display_id: UNIFIED.2-dotted_name_shared_prefix
+    historical_ids: []
+    request:
+      input: '</think><tool_call>
+
+        <function=server.weather>
+
+        <parameter=location>
+
+        Beijing
+
+        </parameter>
+
+        </function>
+
+        </tool_call><tool_call>
+
+        <function=server.time>
+
+        <parameter=timezone>
+
+        Asia/Shanghai
+
+        </parameter>
+
+        </function>
+
+        </tool_call>'
+      init:
+        starting_state: None
+        tool_output_mode: Native
+        named_tool: null
+      finish_reason: stop
+      tools:
+      - name: server.weather
+        parameters:
+          type: object
+          properties:
+            location:
+              type: string
+          required:
+          - location
+          additionalProperties: false
+      - name: server.time
+        parameters:
+          type: object
+          properties:
+            timezone:
+              type: string
+          required:
+          - timezone
+          additionalProperties: false
+      chunks:
+      - delta_text: </think><tool_call>
+      - delta_text: '
+
+          '
+      - delta_text: <function=server.weather>
+      - delta_text: '
+
+          '
+      - delta_text: <parameter=location>
+      - delta_text: '
+
+          Beijing
+
+          '
+      - delta_text: </parameter>
+      - delta_text: '
+
+          '
+      - delta_text: </function>
+      - delta_text: '
+
+          '
+      - delta_text: </tool_call>
+      - delta_text: <tool_call>
+      - delta_text: '
+
+          '
+      - delta_text: <function=server.time>
+      - delta_text: '
+
+          '
+      - delta_text: <parameter=timezone>
+      - delta_text: '
+
+          Asia/Shanghai
+
+          '
+      - delta_text: </parameter>
+      - delta_text: '
+
+          '
+      - delta_text: </function>
+      - delta_text: '
+
+          '
+      - delta_text: </tool_call>
+      - delta_text: ‹finish›
+    golden:
+      assembled:
+      - kind: tool_call
+        name: server.weather
+        arguments:
+          location: Beijing
+      - kind: tool_call
+        name: server.time
+        arguments:
+          timezone: Asia/Shanghai
+  arg_array_quoted_parameter_close:
+    lifecycle: active
+    scenario: arg_array_quoted_parameter_close
+    description: JSON container strings preserve a literal ATEM parameter closer. All native families carry the same data using their own argument encoding; Muse must not interpret the quoted closer as framing.
+    policy:
+    - I7
+    display_id: UNIFIED.7-arg_array_quoted_parameter_close
+    historical_ids: []
+    request:
+      input: '</think><tool_call>
+
+        <function=record>
+
+        <parameter=value>
+
+        ["é \\\" </atem:parameter>"]
+
+        </parameter>
+
+        </function>
+
+        </tool_call>'
+      init:
+        starting_state: None
+        tool_output_mode: Native
+        named_tool: null
+      finish_reason: stop
+      tools:
+      - name: record
+        parameters:
+          type: object
+          properties:
+            value:
+              type: array
+              items:
+                type: string
+          required:
+          - value
+          additionalProperties: false
+      chunks:
+      - delta_text: </think>
+      - delta_text: <tool_call>
+      - delta_text: '
+
+          '
+      - delta_text: <function=record>
+      - delta_text: '
+
+          '
+      - delta_text: <parameter=value>
+      - delta_text: '
+
+          ["é \\\" '
+      - delta_text: </atem:parameter>
+      - delta_text: '"]
+
+          '
+      - delta_text: </parameter>
+      - delta_text: '
+
+          '
+      - delta_text: </function>
+      - delta_text: '
+
+          '
+      - delta_text: </tool_call>
+      - delta_text: ‹finish›
+    golden:
+      assembled:
+      - kind: tool_call
+        name: record
+        arguments:
+          value:
+          - é \" </atem:parameter>
+  arg_object_quoted_parameter_close:
+    lifecycle: active
+    scenario: arg_object_quoted_parameter_close
+    description: JSON container strings preserve a literal ATEM parameter closer. All native families carry the same data using their own argument encoding; Muse must not interpret the quoted closer as framing.
+    policy:
+    - I7
+    display_id: UNIFIED.7-arg_object_quoted_parameter_close
+    historical_ids: []
+    request:
+      input: '</think><tool_call>
+
+        <function=record>
+
+        <parameter=value>
+
+        {"s": "</atem:parameter>"}
+
+        </parameter>
+
+        </function>
+
+        </tool_call>'
+      init:
+        starting_state: None
+        tool_output_mode: Native
+        named_tool: null
+      finish_reason: stop
+      tools:
+      - name: record
+        parameters:
+          type: object
+          properties:
+            value:
+              type: object
+              properties:
+                s:
+                  type: string
+              required:
+              - s
+              additionalProperties: false
+          required:
+          - value
+          additionalProperties: false
+      chunks:
+      - delta_text: </think>
+      - delta_text: <tool_call>
+      - delta_text: '
+
+          '
+      - delta_text: <function=record>
+      - delta_text: '
+
+          '
+      - delta_text: <parameter=value>
+      - delta_text: '
+
+          {"s": "'
+      - delta_text: </atem:parameter>
+      - delta_text: '"}
+
+          '
+      - delta_text: </parameter>
+      - delta_text: '
+
+          '
+      - delta_text: </function>
+      - delta_text: '
+
+          '
+      - delta_text: </tool_call>
+      - delta_text: ‹finish›
+    golden:
+      assembled:
+      - kind: tool_call
+        name: record
+        arguments:
+          value:
+            s: </atem:parameter>

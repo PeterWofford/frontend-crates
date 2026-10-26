@@ -10,6 +10,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Bug fixes
 
 - *(parsers)* Drop whitespace-only text from Nemotron V3 Unified tool-only turns, so the call framing newlines are no longer content. Other families are unchanged ([#449](https://github.com/ai-dynamo/frontend-crates/pull/449))
+## [0.7.35](https://github.com/ai-dynamo/frontend-crates/compare/dynamo-parsers-v2-v0.7.34...dynamo-parsers-v2-v0.7.35) - 2026-10-23
+
+### Bug fixes
+
+- *(parsers-v2)* Preserve GPT-OSS reasoning and recover Harmony final output ([#468](https://github.com/ai-dynamo/frontend-crates/pull/468))
+
+## [0.7.34](https://github.com/ai-dynamo/frontend-crates/compare/dynamo-parsers-v2-v0.7.33...dynamo-parsers-v2-v0.7.34) - 2026-10-23
+
+### Bug fixes
+
+- *(beam)* Preserve inline closers in newline-framed values ([#461](https://github.com/ai-dynamo/frontend-crates/pull/461))
 
 ## [0.7.32](https://github.com/ai-dynamo/frontend-crates/compare/dynamo-parsers-v2-v0.7.31...dynamo-parsers-v2-v0.7.32) - 2026-10-22
 

@@ -10,6 +10,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Bug fixes
 
 - *(parsers)* Drop whitespace-only content from Nemotron V3 tool-only turns in the tool-calling jail, for callers that name the reasoning parser (`JailedStreamBuilder::reasoning_parser`, `apply_tool_calling_jail_with_reasoning_parser`). Every other parser pair and the existing entry points are unchanged ([#449](https://github.com/ai-dynamo/frontend-crates/pull/449))
+## [10.2.2](https://github.com/ai-dynamo/frontend-crates/compare/dynamo-parsers-v10.2.1...dynamo-parsers-v10.2.2) - 2026-10-26
+
+### Bug fixes
+
+- *(parsers)* Strip a force-reasoning <think> that follows text in one chunk ([#477](https://github.com/ai-dynamo/frontend-crates/pull/477))
+
+## [10.2.1](https://github.com/ai-dynamo/frontend-crates/compare/dynamo-parsers-v10.2.0...dynamo-parsers-v10.2.1) - 2026-10-24
+
+### Bug fixes
+
+- *(parsers)* Accept whitespace between glm47 arg_key and arg_value ([#472](https://github.com/ai-dynamo/frontend-crates/pull/472))
+
+## [10.2.0](https://github.com/ai-dynamo/frontend-crates/compare/dynamo-parsers-v10.1.0...dynamo-parsers-v10.2.0) - 2026-10-23
+
+### Features
+
+- Add Muse Spark Open parsers and Chat/Responses tool support ([#450](https://github.com/ai-dynamo/frontend-crates/pull/450))
 
 ## [10.1.0](https://github.com/ai-dynamo/frontend-crates/compare/dynamo-parsers-v10.0.7...dynamo-parsers-v10.1.0) - 2026-10-22
 

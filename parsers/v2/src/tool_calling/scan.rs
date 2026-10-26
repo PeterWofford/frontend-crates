@@ -104,7 +104,8 @@ pub(crate) struct ChannelEnvelope {
 pub(crate) struct EnvelopeChannel {
     pub name: &'static str,
     pub reasoning: bool,
-    /// Markers closing this channel's body. `start` always cuts without being consumed.
+    /// Markers closing this channel's body. A trailing `start` is lookahead for the
+    /// next header and is never consumed, including when it is the whole marker.
     pub terminators: &'static [&'static str],
     /// Whether a body that opens with `{` or `[` is read as a JSON answer: a terminator
     /// inside one of its open strings is data, not the end of the body. The reference
@@ -671,6 +672,12 @@ pub(crate) fn envelope_guided_close(
             .flat_map(|c| c.terminators.iter().copied()),
         state.content_routed.then_some(state.content_json),
     )
+    .map(|(at, len)| (at, envelope_close_len(env, &haystack[at..at + len])))
+}
+
+/// A closer can include the next header's start marker as lookahead.
+fn envelope_close_len(env: &ChannelEnvelope, marker: &str) -> usize {
+    marker.strip_suffix(env.start).unwrap_or(marker).len()
 }
 
 /// Guided reader: earliest TURN-END marker ([`ChannelEnvelope::turn_end`]) outside
@@ -1374,6 +1381,10 @@ pub(crate) trait InvokeBoundary: Send {
     fn channel_body(&mut self, _body: &str, _flush: bool) -> BodyScan {
         BodyScan::Wait
     }
+
+    fn channel_body_at_eos(&mut self, body: &str) -> BodyScan {
+        self.channel_body(body, true)
+    }
 }
 
 struct StatelessInvokeBoundary {
@@ -2021,6 +2032,7 @@ pub(crate) struct WrappedBlockScanner<E: InvokeEmitter> {
     /// so a prompt-consumed `role NAME` lead must be held, not emitted.
     header_slot: bool,
     policy: ToolCallPolicy,
+    finish_at_eos: bool,
 }
 
 struct DeferredParseError {
@@ -2062,6 +2074,7 @@ impl<E: InvokeEmitter> WrappedBlockScanner<E> {
             env_json: JsonBodyState::default(),
             header_slot: true,
             policy: ToolCallPolicy::default(),
+            finish_at_eos: false,
         }
     }
 
@@ -2135,6 +2148,10 @@ impl<E: InvokeEmitter> WrappedBlockScanner<E> {
             prefixed_openers,
         });
         self
+    }
+
+    pub(crate) fn allow_implicit_tool_terminator(&mut self) {
+        self.finish_at_eos = true;
     }
 
     /// Also own the reasoning channel, making this scanner unified.
@@ -2282,6 +2299,7 @@ impl<E: InvokeEmitter> WrappedBlockScanner<E> {
 
     /// Clear one stream's scan state and return bytes not yet emitted.
     pub(crate) fn reset(&mut self) -> String {
+        self.finish_at_eos = false;
         let mut pending = std::mem::take(&mut self.uncommitted_block);
         pending.push_str(&std::mem::take(&mut self.buffer));
         self.buffer_previous = None;
@@ -2780,11 +2798,7 @@ impl<E: InvokeEmitter> WrappedBlockScanner<E> {
         if let Some((at, marker)) = found {
             push_run(out, kind, &self.buffer[..at]);
             self.env_json.reset();
-            let consumed = if marker == env.start {
-                at
-            } else {
-                at + marker.len()
-            };
+            let consumed = at + envelope_close_len(env, marker);
             self.buffer.drain(..consumed);
             self.prose.clear();
             self.env_mode = EnvMode::Idle;
@@ -3156,6 +3170,9 @@ impl<E: InvokeEmitter> WrappedBlockScanner<E> {
         out: &mut S,
     ) -> anyhow::Result<bool> {
         let verdict = match self.invoke_boundary.as_mut() {
+            Some(boundary) if flush && self.finish_at_eos => {
+                boundary.channel_body_at_eos(&self.buffer)
+            }
             Some(boundary) => boundary.channel_body(&self.buffer, flush),
             None => anyhow::bail!("channel envelope needs an invoke boundary"),
         };
