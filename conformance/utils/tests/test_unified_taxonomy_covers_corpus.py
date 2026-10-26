@@ -919,18 +919,18 @@ def test_unified_case_counts_match_the_generator():
     denominator survived in the prose before.
     """
     family_specific = {
-        "beam": 124,
-        "deepseek_v4": 134,
-        "deepseek_v41": 130,
-        "gemma4": 127,
-        "glm47": 125,
-        "gpt_oss": 166,
-        "kimi_k2": 125,
-        "kimi_k3": 134,
-        "muse_glimmer": 138,
-        "muse_spark": 146,
-        "nemotron_v3": 131,
-        "qwen3": 130
+        "beam": 130,
+        "deepseek_v4": 135,
+        "deepseek_v41": 131,
+        "gemma4": 133,
+        "glm47": 131,
+        "gpt_oss": 172,
+        "kimi_k2": 131,
+        "kimi_k3": 140,
+        "muse_glimmer": 144,
+        "muse_spark": 152,
+        "nemotron_v3": 138,
+        "qwen3": 137
     }
     assert set(family_specific) == set(FAMILIES)
     per_family = {fam: len(build_cases(fam)) for fam in FAMILIES}
@@ -953,7 +953,7 @@ def test_deferred_case_ids_are_not_in_the_active_taxonomy():
     deferred = {"1-2", "5-5", "6-2", "32-6", "50-1", "50-2"} | {
         f"31-{number}" for number in range(31, 41)
     }
-    assert len(UNIFIED_TAX) == 239 + len(CONFORMANCE_CASES) + len(G.DOTTED_NAME_SCENARIOS) + len(PARALLEL_BOUNDARY_CASES)
+    assert len(UNIFIED_TAX) == 246 + len(CONFORMANCE_CASES) + len(G.DOTTED_NAME_SCENARIOS) + len(PARALLEL_BOUNDARY_CASES)
     assert not {f"UNIFIED.{case_id}" for case_id in deferred} & {
         numbered_id(scenario) for scenario in UNIFIED_TAX
     }

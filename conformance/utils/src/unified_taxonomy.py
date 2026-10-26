@@ -243,6 +243,8 @@ UNIFIED_TAX = {
     "blank_framing_with_prose": (8, "14"),
     "blank_output_without_call": (3, "2"),
     "blank_framing_after_reasoning": (11, "11"),
+    "blank_framing_prose_after_call": (8, "15"),
+    "blank_framing_incomplete_call": (5, "5"),
     # DeepSeek V4 and V4.1 — DSML tool-call separator framing.
     **{scenario: ("dsml", str(index)) for index, scenario in enumerate([
         "dsml_separator_two_lf", "dsml_separator_four_lf", "dsml_no_separator",

@@ -3499,6 +3499,10 @@ BLANK_FRAMING = [
      "Reasoning, then a newline-framed call and nothing visible: reasoning and the call survive. Nemotron V3 emits no framing text; every other family keeps it.",
      ["P8", "I2"], [("reason", "Check weather."), ("text", "\n\n"), _BLANK_CALL, ("text", "\n")],
      [("reason", "Check weather."), _BLANK_CALL], {"finish_reason": "stop"}, _BLANK_FAMILIES),
+    ("blank_framing_prose_after_call",
+     "Framing newline, a call, then visible prose: the turn has visible text, so every whitespace byte is kept. Nemotron V3 holds the leading newline and releases it in front of the prose, so its text follows the call; every other family keeps it before the call.",
+     ["P8", "I1"], [("text", "\n"), _BLANK_CALL, ("text", "\nDone.")],
+     [_BLANK_CALL, ("text", "\n\nDone.")], {"finish_reason": "stop"}, _BLANK_FAMILIES),
     ("blank_output_without_call",
      "Whitespace-only output with no call is visible content and is kept unchanged by every family.",
      ["P8", "I1"], [("text", "\n\n")],
@@ -3513,7 +3517,19 @@ for _scenario, _description, _policy, _segments, _nemotron_golden, _stream, _fam
         _scenario, _description, _policy, golden_of(_segments), _BLANK_INIT, _stream,
         OnlyFamilies({f: (render_input(f, _segments), M, M) for f in _families}),
     ))
-    INHERITED_GOLDEN[(_scenario, "nemotron_v3")] = golden_of(_nemotron_golden)
+    if golden_of(_nemotron_golden) != golden_of(_segments):
+        INHERITED_GOLDEN[(_scenario, "nemotron_v3")] = golden_of(_nemotron_golden)
+
+# A framing newline before a call that never completes: no completed call, so the
+# whitespace is visible content for every family, Nemotron V3 included. Scoped to
+# the Qwen3 grammar (Nemotron inherits it): Qwen3 is the negative control and
+# Nemotron the family whose rule must not fire.
+EDGE.append((
+    "blank_framing_incomplete_call",
+    "A framing newline, then a call cut off mid-parameter at EOF. The call never completes, so the newline is kept as text and the partial call is dropped, for Nemotron V3 as for Qwen3.",
+    ["P8", "P2"], golden_of([("text", "\n")]), _BLANK_INIT, {"finish_reason": "stop"},
+    OnlyFamilies({"qwen3": ("\n<tool_call>\n<function=get_weather>\n<parameter=city>\nPar", M, M)}),
+))
 
 
 # Inherited grammars expose their authored rows to applicability and schema consumers too.
