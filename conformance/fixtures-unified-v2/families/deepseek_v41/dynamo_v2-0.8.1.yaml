@@ -1,0 +1,41 @@
+provenance:
+  status: captured
+  origin:
+    crate_version: 0.8.1
+    git_commit: 7ac000aa248c43972ff995ce14faca1eb9159fba
+    source_sha256: f9d2af6a3a5ee75194aa94e549f444a39053dc9b599a6af4c14f670306b6247f
+document:
+  mode: unified
+changes:
+  blank_output_without_call:
+    case_key: UNIFIED.3-blank_output_without_call
+    stimulus:
+      ref: current
+      semantic_sha256: 3bbd8d6a224b1ed1cd05857ffba4f70b4c5bcf1905365cd4df6ee96b473f316e
+    observation:
+      value:
+        assembled:
+        - kind: text
+          text: '
+
+
+            '
+        chunks:
+        - expected: []
+        - expected:
+          - kind: text
+            text: '
+
+
+              '
+metadata_changes: {}
+document_overrides:
+  blank_output_without_call:
+    capture_provenance:
+      captured_with:
+        dynamo_v2: 0.8.1
+      capture_origin:
+        crate_version: 0.8.1
+        source_sha256: f9d2af6a3a5ee75194aa94e549f444a39053dc9b599a6af4c14f670306b6247f
+        git_commit: 7ac000aa248c43972ff995ce14faca1eb9159fba
+      inherited_from: null
