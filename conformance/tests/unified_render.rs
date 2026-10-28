@@ -32,11 +32,7 @@ use serde_json::{Value, json};
 mod common;
 use common::unified_capture::{self as capture, chunk_input};
 
-use common::{
-    Init,
-    known_unified_divergences::{self as divergences, Check, Expected},
-    unified_tools as tools,
-};
+use common::{Init, unified_tools as tools};
 
 #[derive(Deserialize)]
 struct GoldenFile {
@@ -767,10 +763,7 @@ fn cell(
 #[test]
 fn render_unified_conformance_html() {
     let capture_provenance = common::dynamo_capture_provenance(None);
-    let known = divergences::load();
-    let mut observed_dynamo = std::collections::BTreeSet::new();
-    let mut observed_projection = std::collections::BTreeSet::new();
-    let mut parity_failures = Vec::new();
+    let mut golden_differences = Vec::new();
     // The vLLM column is LIVE, not an expectation. `capture_vllm_rust_unified.py`
     // records the `vllm-parser` crate against this same corpus; reading it here is
     // what makes the column evidence instead of a claim.
@@ -871,43 +864,16 @@ fn render_unified_conformance_html() {
                 .as_ref()
                 .map(|e| format!("ERROR: {e}"))
                 .unwrap_or_else(|| got.iter().map(Ev::render).collect::<Vec<_>>().join("  |  "));
-            // These entries pin the public Value projection separately from raw
-            // argument bytes, which are checked by the numeric parser tests.
-            let projection_matches =
-                match divergences::expected(&known, &file.family, id, Check::Projection) {
-                    Some(Expected::Projection(expected)) if actual == expected.actual => {
-                        observed_projection.insert((file.family.clone(), id.clone()));
-                        true
-                    }
-                    Some(Expected::Projection(expected)) => {
-                        parity_failures.push(format!(
-                    "{id}: known projection divergence changed\n expected: {}\n      got: {}",
-                    expected.actual, actual
-                    ));
-                        false
-                    }
-                    _ => false,
-                };
             if dclass != "MATCH" {
-                match divergences::expected(&known, &file.family, id, Check::Golden) {
-                    Some(Expected::Golden(expected)) if actual == expected.actual => {
-                        observed_dynamo.insert((file.family.clone(), id.clone()));
-                    }
-                    Some(Expected::Golden(expected)) => parity_failures.push(format!(
-                        "{id}: known golden divergence changed\n expected: {}\n      got: {}",
-                        expected.actual, actual
-                    )),
-                    _ if projection_matches => {}
-                    _ => parity_failures.push(format!(
-                        "{id}: unexpected golden divergence\n   golden: {}\n   actual: {}",
-                        case.golden
-                            .iter()
-                            .map(Ev::render)
-                            .collect::<Vec<_>>()
-                            .join("  |  "),
-                        actual
-                    )),
-                }
+                golden_differences.push(format!(
+                    "{id}: GOLDEN differs\n   golden: {}\n   actual: {}",
+                    case.golden
+                        .iter()
+                        .map(Ev::render)
+                        .collect::<Vec<_>>()
+                        .join("  |  "),
+                    actual
+                ));
             }
             eprintln!(
                 "{id:44} dynamo={dclass:6} :: {}",
@@ -1080,26 +1046,7 @@ fn render_unified_conformance_html() {
     // and asserted elsewhere via the rendered legend), so this only needs to
     // pin Dynamo's own invariant.
     assert!(total >= 14, "expected the seed corpus");
-    parity_failures.extend(divergences::reconcile(
-        &known,
-        Check::Golden,
-        &observed_dynamo,
-    ));
-    parity_failures.extend(divergences::reconcile(
-        &known,
-        Check::Projection,
-        &observed_projection,
-    ));
-    assert_eq!(
-        dynamo_red,
-        observed_dynamo.len() + observed_projection.len(),
-        "every red report cell must match one exact allowlisted golden or projection divergence"
-    );
-    assert!(
-        parity_failures.is_empty(),
-        "unified report has unexpected or stale golden divergences:\n\n{}",
-        parity_failures.join("\n\n")
-    );
+    capture::report_comparison("render-golden", total, &golden_differences, false);
 }
 
 /// One committed `dynamo_v2-<ver>/<family>/<key>.yaml` capture.
@@ -1161,10 +1108,17 @@ struct InputCase {
 #[test]
 fn committed_dynamo_capture_matches_the_live_parsers() {
     let root = common::ensure_unified_fixtures().join("unified");
-    validate_committed_dynamo_capture(&root);
+    let (checked, stale) = compare_committed_dynamo_capture(&root);
+    capture::report_comparison("recorded-capture", checked, &stale, true);
+    assert_dynamo_capture_matches(checked, &stale);
 }
 
 fn validate_committed_dynamo_capture(root: &std::path::Path) {
+    let (checked, stale) = compare_committed_dynamo_capture(root);
+    assert_dynamo_capture_matches(checked, &stale);
+}
+
+fn compare_committed_dynamo_capture(root: &std::path::Path) -> (usize, Vec<String>) {
     if !root.join("inputs").is_dir() {
         panic!(
             "no committed unified fixtures under {} — extract them first",
@@ -1176,10 +1130,6 @@ fn validate_committed_dynamo_capture(root: &std::path::Path) {
     let capture_dir = common::latest_recorded_capture_dir(root, "dynamo_v2-")
         .expect("no committed dynamo_v2-<ver> capture dir");
 
-    validate_selected_dynamo_capture(root, &capture_dir);
-}
-
-fn validate_selected_dynamo_capture(root: &std::path::Path, capture_dir: &std::path::Path) {
     let input_dirs = shared_overlay_dirs(root, "inputs");
     let native_families: BTreeSet<String> = common::unified_families()
         .into_iter()
@@ -1320,12 +1270,16 @@ fn validate_selected_dynamo_capture(root: &std::path::Path, capture_dir: &std::p
         }
     }
 
+    (checked, stale)
+}
+
+fn assert_dynamo_capture_matches(checked: usize, stale: &[String]) {
     assert!(checked > 0, "no committed capture cases were compared");
     assert!(
         stale.is_empty(),
         "{} of {checked} latest recorded Dynamo cases differ from the live parser. \
          Verify the parser against authored inputs/GOLDEN and run latest parser tests. \
-         If the intended output changed, request an administrator update of the affected latest YAML; \
+         If the intended output changed, recapture the affected latest YAML; \
          contributors do not recapture historical versions.\n\n{}",
         stale.len(),
         stale.join("\n\n"),
