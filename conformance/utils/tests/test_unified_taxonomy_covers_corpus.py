@@ -464,6 +464,9 @@ def test_semantic_inventory_rejects_duplicates_and_reused_ids():
     changed = deepcopy(case)
     changed["input"] = "<other>x</other>"
     assert semantic_key(case) != semantic_key(changed)
+    changed = deepcopy(case)
+    changed["input_chunks"] = ["<call>", "x", "</call>"]
+    assert semantic_key(case) != semantic_key(changed)
     binding = {"purpose": "Retain a source-bound regression", "input_source": "inputs.tar.gz:family/case", "capture_source": "capture.tar.gz:family/case", "version": "1.0.0"}
     inventory = assert_unique_behaviour("sample", {"first": case, "retained": deepcopy(case)}, retained_archives={"retained": binding})
     assert inventory["exact_duplicates"] == [["first", "retained"]]
@@ -969,7 +972,7 @@ def test_deferred_case_ids_are_not_in_the_active_taxonomy():
     deferred = {"1-2", "5-5", "6-2", "32-6", "50-1", "50-2"} | {
         f"31-{number}" for number in range(31, 41)
     }
-    assert len(UNIFIED_TAX) == 239 + len(CONFORMANCE_CASES) + len(PARALLEL_BOUNDARY_CASES) + len(V1_SPLIT_SCENARIOS) + len(G.DOTTED_NAME_SCENARIOS) + len(NUMERIC_VARIANTS) + 1
+    assert len(UNIFIED_TAX) == 251 + len(CONFORMANCE_CASES) + len(PARALLEL_BOUNDARY_CASES) + len(V1_SPLIT_SCENARIOS) + len(G.DOTTED_NAME_SCENARIOS) + len(NUMERIC_VARIANTS) + 1
     assert not {f"UNIFIED.{case_id}" for case_id in deferred} & {
         numbered_id(scenario) for scenario in UNIFIED_TAX
     }
@@ -1712,7 +1715,9 @@ def _native_input_calls(family, raw, *, exact_numbers=False):
                 # Kimi K2 preserves a named malformed JSON call as empty arguments.
                 arguments = {}
         else:
-            pattern = r'<\|open\|>\s*argument key="([^"]+)" type="([^"]+)"\s*<\|sep\|>(.*?)<\|close\|>\s*argument\s*<\|sep\|>'
+            pattern = (r'<\|open\|>\s*argument key="([^"]+)" type="([^"]+)"\s*<\|sep\|>(.*?)'
+                       r'<\|close\|>\s*argument\s*<\|sep\|>'
+                       r'(?=\s*(?:<\|open\|>\s*argument key="[^"]+" type="[^"]+"\s*<\|sep\|>|<\|close\|>\s*(?:call|tools)\s*<\|sep\|>|$))')
             for key, kind, value in re.findall(pattern, body, re.S):
                 arguments[key] = value if kind == "string" else json.loads(
                     value, parse_float=Decimal if exact_numbers else float
@@ -1861,6 +1866,8 @@ def _assert_input_carries_events(family: str, scenario: str, case: dict) -> None
     if scenario == "malformed_json_then_two_valid_calls":
         _assert_malformed_recovery(family, case)
         return
+    if scenario.startswith("kimi_native_"):
+        _assert_kimi_native_golden(scenario, case)
     raw = case["input"]
     tools = [event for event in case["golden"] if event["kind"] == "tool_call"]
     if tools:
@@ -2393,6 +2400,21 @@ def test_second_pass_reference_goldens_satisfy_the_authored_schema(family, scena
     assert matches_schema(case["golden"][0]["arguments"], case["tools"][0]["parameters"])
 
 
+def test_kimi_display_sections_match_their_applicable_family():
+    labels = taxonomy.display_case_labels(UNIFIED_TAX)
+    for scenario in UNIFIED_TAX:
+        group = taxonomy.display_tax(scenario)[0]
+        if group not in {"kimi", "kimi_k2"}:
+            continue
+        family = "kimi_k3" if group == "kimi" else "kimi_k2"
+        assert G.scenario_families(scenario) == frozenset({family}), scenario
+        assert labels[scenario]["label"].startswith(f"{family}-"), scenario
+        assert labels[scenario]["compact_prefix"] == family, scenario
+    for scenario in UNIFIED_TAX:
+        if scenario.startswith("kimi_native_"):
+            assert taxonomy.display_tax(scenario)[0] in {"kimi", "kimi_k2"}, scenario
+
+
 def test_display_ranks_follow_descriptions_without_changing_capture_ids():
     scenarios = list(UNIFIED_TAX)
     identities = {scenario: numbered_id(scenario) for scenario in scenarios}
@@ -2513,3 +2535,41 @@ def test_retired_harmony_eof_case_keeps_its_history_and_shared_contract():
         assert not raw.endswith(control_tokens("gpt_oss")[3])
     assert not G.scenario_families("gpt_oss_truncated_tool_at_eof_is_dropped")
     assert "UNIFIED.gpt_oss_truncated_tool_at_eof_is_dropped.gpt_oss" not in G.build_cases("gpt_oss")
+
+
+def _assert_kimi_native_golden(scenario: str, case: dict) -> None:
+    if scenario == "kimi_native_incompatible_string_recovery":
+        expected = [{"kind": "tool_call", "name": "write_file", "arguments": {}}]
+    else:
+        if "count_content_chunk" in scenario:
+            arguments = {"count": 7, "content": "q" * 4096}
+        elif scenario == "kimi_native_trailing_syntax_whitespace":
+            arguments = {}
+        elif scenario in {"kimi_native_valid_object_trailing_garbage", "kimi_native_incremental_interfield_whitespace"}:
+            arguments = {"count": 7, "content": "q"}
+        else:
+            assert scenario == "kimi_native_rejected_next_header_progress"
+            arguments = {"count": 7, "content": 'head<|close|>argument<|sep|> <|open|>argument gibberish<|sep|>' + "q" * 3072}
+        expected = [{"kind": "tool_call", "name": "write_file", "arguments": arguments}]
+    assert case["golden"] == expected, (scenario, "native Kimi golden differs from authored contract")
+
+
+@pytest.mark.parametrize("family,scenario", [
+    (family, name) for name in UNIFIED_TAX if name.startswith("kimi_native_")
+    for family in G.scenario_families(name)
+])
+@pytest.mark.parametrize("mutation", ["empty", "name", "arguments"])
+def test_kimi_native_oracle_rejects_changed_goldens(family, scenario, mutation):
+    case = build_cases(family)[f"UNIFIED.{scenario}.{family}"]
+    _assert_input_carries_events(family, scenario, case)
+    if case["golden"]:
+        if mutation == "empty":
+            case["golden"] = []
+        elif mutation == "name":
+            case["golden"][0]["name"] = "invented"
+        else:
+            case["golden"][0]["arguments"] = {"count": 8, "content": "wrong"}
+    else:
+        case["golden"] = [{"kind": "tool_call", "name": "write_file", "arguments": {}}]
+    with pytest.raises(AssertionError):
+        _assert_input_carries_events(family, scenario, case)
