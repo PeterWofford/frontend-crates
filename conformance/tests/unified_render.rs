@@ -23,9 +23,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::path::PathBuf;
 
 use dynamo_parsers::{ReasoningParser, ReasoningParserType};
-use dynamo_parsers_v2::{
-    assemble, create_tool_parser_for_family, create_unified_parser_for_family,
-};
+use dynamo_parsers_v2::{create_tool_parser_for_family, create_unified_parser_for_family};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_json::{Value, json};
 
@@ -402,8 +400,11 @@ fn capture_native_case(
     )?;
     let rows = capture::native_capture(&mut parser, chunks)?;
     let deltas: Vec<_> = rows.iter().flatten().cloned().collect();
-    let raw_args = dynamo_parsers_v2::tool_arguments_raw(&deltas);
-    let assembled: Vec<Ev> = assemble(&deltas).into_iter().map(Ev::from).collect();
+    let (assembled, raw_args) = capture::assembled_native_capture(&deltas);
+    let assembled = assembled
+        .into_iter()
+        .map(|event| serde_yaml::from_value(event).expect("shared native capture event"))
+        .collect();
     let rows = chunks
         .iter()
         .cloned()
@@ -437,7 +438,7 @@ fn numeric_raw_arguments_match_authored_tokens_for_every_family() {
             }
             let schemas = common::unified_tools_for_schemas(case.tools.as_ref());
             let chunks = capture::input_chunks(&case.input, case.input_chunks.as_deref());
-            let (_assembled, _rows, raw) =
+            let (assembled, _rows, raw) =
                 capture_native_case(&file.family, &chunks, &case.init, &schemas)
                     .unwrap_or_else(|error| panic!("{id}: {error:?}"));
             let expected = if file.family == "beam"
@@ -476,6 +477,19 @@ fn numeric_raw_arguments_match_authored_tokens_for_every_family() {
                 common::canonical_argument_json(actual),
                 common::canonical_argument_json(&expected),
                 "{id}"
+            );
+            let rendered = assembled
+                .iter()
+                .filter_map(|event| match event {
+                    Ev::ToolCall { arguments, .. } => Some(arguments),
+                    _ => None,
+                })
+                .collect::<Vec<_>>();
+            assert_eq!(rendered.len(), 1, "{id}: rendered call inventory");
+            assert_eq!(
+                rendered[0],
+                &raw_arguments(&expected),
+                "{id}: rendered arguments"
             );
             checked += 1;
         }

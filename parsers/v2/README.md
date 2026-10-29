@@ -66,6 +66,12 @@ Tool updates carry a stable `tool_index`, optional name, raw `arguments` fragmen
 
 Provisional updates do not authorize execution. The serving layer must validate tool availability, authorization, schema, and call policy.
 
+## Numeric values and Serde consumers
+
+The default build keeps `serde_json` numbers compatible with independent Serde serializers such as Pythonizer, MessagePack, and YAML. Parser argument deltas and `tool_arguments_raw()` preserve exact numeric JSON tokens, including large integers, fractions, and exponents, through the shared raw-argument representation. `UnifiedEvent.arguments` is a lossy `serde_json::Value` projection; use the raw accessor for serving exact argument text.
+
+Enable the `arbitrary-precision` Cargo feature only when a consumer needs arbitrary-precision `serde_json::Value` numbers and supports their Serde representation. This enables `serde_json/arbitrary_precision`, which serializes numbers through a private struct rather than native numeric scalar methods. Independent serializers may expose that struct as a map or reject it. Cargo unifies dependency features, so enabling this feature also affects other `serde_json` users in the same dependency graph. `raw_value` remains enabled in both builds.
+
 ## Parser goals (read first)
 
 These goals govern every tool-calling and reasoning parser, v1 and v2, and are the tie-breakers when the engines (vLLM, SGLang, Dynamo) disagree.
