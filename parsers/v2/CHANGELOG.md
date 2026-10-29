@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.9](https://github.com/ai-dynamo/frontend-crates/compare/dynamo-parsers-v2-v0.8.8...dynamo-parsers-v2-v0.8.9) - 2026-10-29
+
+### Bug fixes
+
+- *(parsers)* Stream native Kimi arguments before call closure ([#384](https://github.com/ai-dynamo/frontend-crates/pull/384))
+
 ## [0.8.8](https://github.com/ai-dynamo/frontend-crates/compare/dynamo-parsers-v2-v0.8.7...dynamo-parsers-v2-v0.8.8) - 2026-10-29
 
 ### Bug fixes
