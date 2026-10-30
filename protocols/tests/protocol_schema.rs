@@ -53,6 +53,15 @@ fn request_roots_are_distinct_from_upstream_and_have_real_fields() {
 }
 
 #[test]
+fn embeds_only_completion_requests_match_the_generated_schema() {
+    let input = json!({"model":"test","prompt_embeds":"synthetic"});
+    let schema = validator::<CreateCompletionRequest>();
+    let errors: Vec<_> = schema.iter_errors(&input).map(|e| e.to_string()).collect();
+    assert!(errors.is_empty(), "{input}: {errors:?}");
+    canonical::<CreateCompletionRequest>(input);
+}
+
+#[test]
 fn component_graph_resolves_every_reference() {
     fn walk(value: &Value, root: &Value) {
         match value {
