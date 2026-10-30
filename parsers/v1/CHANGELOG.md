@@ -10,6 +10,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Bug fixes
 
 - *(parsers)* Drop whitespace-only content from Nemotron V3 tool-only turns in the tool-calling jail, for callers that name the reasoning parser (`JailedStreamBuilder::reasoning_parser`, `apply_tool_calling_jail_with_reasoning_parser`). Every other parser pair and the existing entry points are unchanged ([#449](https://github.com/ai-dynamo/frontend-crates/pull/449))
+
+## [10.2.3](https://github.com/ai-dynamo/frontend-crates/compare/dynamo-parsers-v10.2.2...dynamo-parsers-v10.2.3) - 2026-10-29
+
+### Bug fixes
+
+- *(parsers)* Hold back a partial force-reasoning start tag after a prefix ([#481](https://github.com/ai-dynamo/frontend-crates/pull/481))
+
+### Documentation
+
+- *(parsers)* Refresh library usage and contributor guides ([#492](https://github.com/ai-dynamo/frontend-crates/pull/492))
+
 ## [10.2.2](https://github.com/ai-dynamo/frontend-crates/compare/dynamo-parsers-v10.2.1...dynamo-parsers-v10.2.2) - 2026-10-26
 
 ### Bug fixes

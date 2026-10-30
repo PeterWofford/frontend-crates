@@ -2,40 +2,35 @@ provenance:
   status: captured
   origin:
     crate_version: 0.8.1
-    git_commit: 7ac000aa248c43972ff995ce14faca1eb9159fba
-    source_sha256: f9d2af6a3a5ee75194aa94e549f444a39053dc9b599a6af4c14f670306b6247f
+    git_commit: b55b6d90e91ce9a29e1cdb792522ca2c9d95d8ba
+    source_sha256: 75c2dd634500465e3c4153a3387d6174f75dbff66cf980f1e4ae8a1a37c5ce31
 document:
   mode: unified
-changes:
-  blank_output_without_call:
-    case_key: UNIFIED.3-blank_output_without_call
-    stimulus:
-      ref: current
-      semantic_sha256: 3bbd8d6a224b1ed1cd05857ffba4f70b4c5bcf1905365cd4df6ee96b473f316e
-    observation:
-      value:
-        assembled:
-        - kind: text
-          text: '
-
-
-            '
-        chunks:
-        - expected: []
-        - expected:
-          - kind: text
-            text: '
-
-
-              '
-metadata_changes: {}
+changes: {}
+metadata_changes:
+  arg_json_null_ref: {}
+  arg_null_mixed_labels: {}
+  arg_string_null_ref: {}
+  gpt_oss_control_marker_inside_argument_string: {}
+  gpt_oss_invalid_tool_body_then_empty_call: {}
+  gpt_oss_invalid_tool_body_then_valid_call: {}
+  gpt_oss_multiple_unknown_and_empty_tools: {}
 document_overrides:
-  blank_output_without_call:
+  arg_array_quoted_parameter_close:
     capture_provenance:
       captured_with:
-        dynamo_v2: 0.8.1
+        dynamo_v2: 0.8.0
       capture_origin:
-        crate_version: 0.8.1
-        source_sha256: f9d2af6a3a5ee75194aa94e549f444a39053dc9b599a6af4c14f670306b6247f
-        git_commit: 7ac000aa248c43972ff995ce14faca1eb9159fba
+        crate_version: 0.8.0
+        source_sha256: 280118009c55ee14ef80a4d1a8440d31d8da4f2f4158ea3161ad05b987c0a1a3
+        git_commit: 22b4ea5423652236852cf04e1eaae08c3c4c3828
+      inherited_from: null
+  arg_object_quoted_parameter_close:
+    capture_provenance:
+      captured_with:
+        dynamo_v2: 0.8.0
+      capture_origin:
+        crate_version: 0.8.0
+        source_sha256: 280118009c55ee14ef80a4d1a8440d31d8da4f2f4158ea3161ad05b987c0a1a3
+        git_commit: 22b4ea5423652236852cf04e1eaae08c3c4c3828
       inherited_from: null

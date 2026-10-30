@@ -116,9 +116,30 @@ impl BlankToolTurn {
         self.closed = true;
         output.push_text(std::mem::take(&mut self.held));
     }
+
+    fn settle_tail(&mut self, tail: UnifiedParserOutput) -> UnifiedParserOutput {
+        let mut filtered = UnifiedParserOutput::default();
+        self.filter(tail, &mut filtered);
+        if self.held.is_empty() {
+            return filtered;
+        }
+        if self.made_tool_call {
+            self.held.clear();
+            self.closed = true;
+            return filtered;
+        }
+        let mut output = UnifiedParserOutput::default();
+        self.release(&mut output);
+        output.append(&mut filtered);
+        output
+    }
 }
 
 impl UnifiedParser for BlankToolTurn {
+    fn preserve_message_phases(&mut self, enabled: bool) {
+        self.inner.preserve_message_phases(enabled);
+    }
+
     fn input_capabilities(&self) -> UnifiedParserInputCapabilities {
         self.inner.input_capabilities()
     }
@@ -160,21 +181,12 @@ impl UnifiedParser for BlankToolTurn {
 
     fn finish(&mut self) -> Result<UnifiedParserOutput> {
         let tail = self.inner.finish()?;
-        let mut filtered = UnifiedParserOutput::default();
-        self.filter(tail, &mut filtered);
-        if self.held.is_empty() {
-            return Ok(filtered);
-        }
-        if self.made_tool_call {
-            self.held.clear();
-            self.closed = true;
-            return Ok(filtered);
-        }
-        // Held whitespace precedes everything this finish produced.
-        let mut output = UnifiedParserOutput::default();
-        self.release(&mut output);
-        output.append(&mut filtered);
-        Ok(output)
+        Ok(self.settle_tail(tail))
+    }
+
+    fn finish_at_eos(&mut self) -> Result<UnifiedParserOutput> {
+        let tail = self.inner.finish_at_eos()?;
+        Ok(self.settle_tail(tail))
     }
 
     fn reset(&mut self) -> String {
@@ -198,7 +210,83 @@ impl UnifiedParser for BlankToolTurn {
 
 #[cfg(test)]
 mod tests {
+    use super::super::MessagePhase;
     use super::*;
+
+    #[derive(Default)]
+    struct LifecycleParser {
+        preserve_phases: bool,
+    }
+
+    impl UnifiedParser for LifecycleParser {
+        fn preserve_message_phases(&mut self, enabled: bool) {
+            self.preserve_phases = enabled;
+        }
+
+        fn parse_into(&mut self, delta: &str, output: &mut UnifiedParserOutput) -> Result<()> {
+            if delta == "CALL" {
+                output.push_call(super::super::ToolCallDelta {
+                    tool_index: 0,
+                    name: Some("run".into()),
+                    arguments: "{}".into(),
+                    complete: true,
+                });
+            } else {
+                if self.preserve_phases {
+                    output.push_event(UnifiedParserEvent::MessageStart(MessagePhase::FinalAnswer));
+                }
+                output.push_text(delta);
+            }
+            Ok(())
+        }
+
+        fn finish(&mut self) -> Result<UnifiedParserOutput> {
+            let mut output = UnifiedParserOutput::default();
+            output.push_reasoning("ordinary");
+            output.push_text("\n");
+            Ok(output)
+        }
+
+        fn finish_at_eos(&mut self) -> Result<UnifiedParserOutput> {
+            let mut output = UnifiedParserOutput::default();
+            output.push_reasoning("eos");
+            output.push_text("\n");
+            Ok(output)
+        }
+    }
+
+    #[test]
+    fn message_phase_setting_reaches_the_inner_parser() {
+        let mut wrapped = BlankToolTurn::new(Box::new(LifecycleParser::default()));
+        wrapped.preserve_message_phases(true);
+        let mut output = UnifiedParserOutput::default();
+        wrapped.parse_into("Done.", &mut output).unwrap();
+        assert!(matches!(
+            output.events.first(),
+            Some(UnifiedParserEvent::MessageStart(MessagePhase::FinalAnswer))
+        ));
+    }
+
+    #[test]
+    fn ordinary_and_eos_finish_keep_the_inner_lifecycle_and_blank_rule() {
+        for eos in [false, true] {
+            let mut wrapped = BlankToolTurn::new(Box::new(LifecycleParser::default()));
+            let mut output = UnifiedParserOutput::default();
+            wrapped.parse_into("\n", &mut output).unwrap();
+            wrapped.parse_into("CALL", &mut output).unwrap();
+            let tail = if eos {
+                wrapped.finish_at_eos()
+            } else {
+                wrapped.finish()
+            }
+            .unwrap();
+            assert_eq!(tail.events.len(), 1);
+            assert!(
+                matches!(&tail.events[0], UnifiedParserEvent::Reasoning(text) if text == if eos { "eos" } else { "ordinary" })
+            );
+            assert!(wrapped.held.is_empty());
+        }
+    }
 
     #[test]
     fn applies_only_to_nemotron_v3() {

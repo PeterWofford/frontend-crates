@@ -2013,6 +2013,7 @@ impl JailedStream {
                     last_stream_created = chat_response.created;
 
                     let mut all_emissions = Vec::new();
+                    let mut held_blank_choices = Vec::new();
 
                     if chat_response.choices.is_empty() {
                         // No choices processed (e.g., usage-only chunk)
@@ -2074,6 +2075,11 @@ impl JailedStream {
                                 };
                                 let held_all = self.holds_blank_content
                                     && choice_state.hold_blank_content(&mut emissions, absorb);
+                                if held_all {
+                                    let mut held_choice = choice.clone();
+                                    held_choice.delta.content = None;
+                                    held_blank_choices.push(held_choice);
+                                }
                                 choice_state.hold_terminal_suffix(
                                     &mut emissions,
                                     self.terminal_marker_policy,
@@ -2184,6 +2190,20 @@ impl JailedStream {
                                 choice_state.held_after_contentless.extend(choice.logprobs.clone().map(HeldRecords::Contentless));
                             }
                         }
+                    }
+
+                    // Holding blank text must not also swallow this frame's usage
+                    // or SSE metadata. Keep empty per-choice deltas: an empty
+                    // choices list would make fix_finish_reason end the turn.
+                    if !held_blank_choices.is_empty() && all_emissions.is_empty()
+                        && (chat_response.usage.is_some() || response.id.is_some()
+                            || response.event.is_some() || response.comment.is_some()
+                            || response.error.is_some() || chat_response.service_tier.is_some()
+                            || chat_response.system_fingerprint.is_some())
+                    {
+                        let mut metadata = response.clone();
+                        metadata.data.as_mut().unwrap().choices = held_blank_choices;
+                        yield metadata;
                     }
 
                     // Emit all results based on emission mode

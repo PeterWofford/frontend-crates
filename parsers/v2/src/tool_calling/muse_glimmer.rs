@@ -31,6 +31,9 @@ use std::sync::OnceLock;
 
 use regex::Regex;
 
+use crate::tool_calling::arguments::{
+    ParsedObject, ParsedValue, parsed_json_literal, parsed_json_prefix_end,
+};
 use crate::tool_calling::scan::{
     InvokeEmitter, ProseControl, ProseControlState, ProseGrammarSpan, marker_prefix_suffix_len,
     push_run, reorder_arguments,
@@ -119,15 +122,13 @@ fn parameter_end(value: &str, schema: Option<&serde_json::Value>) -> Option<usiz
     if !schema.is_some_and(|s| s["type"] == "string")
         && value.trim_start().starts_with(['{', '[', '"'])
     {
-        let mut json = serde_json::Deserializer::from_str(value).into_iter::<serde_json::Value>();
-        match json.next() {
-            Some(Ok(_)) => {
-                let end = json.byte_offset();
+        match parsed_json_prefix_end(value) {
+            Ok(Some(end)) => {
                 return value[end..].find(PARAMETER_CLOSE).map(|at| end + at);
             }
-            Some(Err(error)) if error.is_eof() => return None,
+            Ok(None) => return None,
             // Invalid non-JSON text retains the existing verbatim fallback.
-            _ => {}
+            Err(_) => {}
         }
     }
     value.find(PARAMETER_CLOSE)
@@ -947,7 +948,7 @@ impl InvokeEmitter for MuseInvokeEmitter {
             .strip_suffix(INVOKE_CLOSE)
             .unwrap_or_default();
 
-        let mut arguments = serde_json::Map::new();
+        let mut arguments = ParsedObject::new();
         let mut source_names = Vec::new();
         let name = normalize_name(name_raw, &self.tools);
         let mut tail = body;
@@ -967,16 +968,17 @@ impl InvokeEmitter for MuseInvokeEmitter {
             let literal_text =
                 declared_string && schema.is_some_and(|s| s["contentMediaType"] == "text/plain");
             let decoded = decode_value(raw);
-            let nullable_null = decoded.is_null() && schema.is_some_and(|s| s["nullable"] == true);
+            let nullable_null = matches!(decoded, ParsedValue::Json(serde_json::Value::Null))
+                && schema.is_some_and(|s| s["nullable"] == true);
             arguments.insert(
                 key.to_string(),
                 if literal_text
                     || (self.schema_string_types
                         && declared_string
-                        && !decoded.is_string()
+                        && !matches!(decoded, ParsedValue::Json(serde_json::Value::String(_)))
                         && !nullable_null)
                 {
-                    serde_json::Value::String(raw.to_owned())
+                    ParsedValue::from(serde_json::Value::String(raw.to_owned()))
                 } else {
                     decoded
                 },
@@ -1003,8 +1005,9 @@ impl InvokeEmitter for MuseInvokeEmitter {
 /// spec's `value_parser: json` with `allow_non_json: true`. The raw fallback is
 /// byte-preserving (NOT trimmed): both engines keep surrounding whitespace in
 /// non-JSON string values.
-fn decode_value(raw: &str) -> serde_json::Value {
-    serde_json::from_str(raw).unwrap_or_else(|_| serde_json::Value::String(raw.to_string()))
+fn decode_value(raw: &str) -> ParsedValue {
+    parsed_json_literal(raw)
+        .unwrap_or_else(|| ParsedValue::from(serde_json::Value::String(raw.to_string())))
 }
 
 /// Collapse the chat template's doubled namespace (`get_weather.get_weather` ->
@@ -1728,6 +1731,22 @@ impl ToolParser for MuseGlimmerToolStreamParser {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn json_parameter_boundaries_preserve_incomplete_and_invalid_fallbacks() {
+        let quoted = r#"{"text":"</atem:parameter></atem:invoke>","n":invalid}"#;
+        let value = format!("{quoted}{PARAMETER_CLOSE}tail");
+        assert_eq!(parameter_end(&value, None), value.find(PARAMETER_CLOSE));
+        let prefix = r#"{"text":"</atem:parameter></atem:invoke>","n":1e"#;
+        assert_eq!(parameter_end(prefix, None), None);
+        let raw = format!("raw{PARAMETER_CLOSE}tail{PARAMETER_CLOSE}");
+        assert_eq!(parameter_end(&raw, None), Some(3));
+        let string_schema = serde_json::json!({"type":"string"});
+        assert_eq!(
+            parameter_end(&value, Some(&string_schema)),
+            value.find(PARAMETER_CLOSE)
+        );
+    }
+
     use super::*;
 
     fn tools(names: &[&str]) -> Vec<Tool> {

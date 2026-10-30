@@ -3562,6 +3562,121 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn test_nemotron_held_whitespace_preserves_response_metadata() {
+        for annotation in [
+            "usage",
+            "id",
+            "event",
+            "comment",
+            "error",
+            "service_tier",
+            "system_fingerprint",
+        ] {
+            let mut blank = create_mock_response_chunk("\n".to_string(), 0);
+            blank.data.as_mut().unwrap().choices[0].delta.role = None;
+            blank.data.as_mut().unwrap().system_fingerprint = None;
+            match annotation {
+                "usage" => {
+                    blank.data.as_mut().unwrap().usage = Some(CompletionUsage {
+                        prompt_tokens: 11,
+                        completion_tokens: 3,
+                        total_tokens: 14,
+                        prompt_tokens_details: None,
+                        completion_tokens_details: None,
+                    });
+                }
+                "id" => blank.id = Some("blank-frame".to_string()),
+                "event" => blank.event = Some("message".to_string()),
+                "comment" => blank.comment = Some(vec!["keepalive".to_string()]),
+                "error" => blank.error = Some("upstream error".to_string()),
+                "service_tier" => {
+                    blank.data.as_mut().unwrap().service_tier =
+                        Some(serde_json::from_value(serde_json::json!("default")).unwrap())
+                }
+                "system_fingerprint" => {
+                    blank.data.as_mut().unwrap().system_fingerprint =
+                        Some("fingerprint".to_string())
+                }
+                _ => unreachable!(),
+            }
+            let mut expected = blank.clone();
+            expected.data.as_mut().unwrap().choices[0].delta.content = None;
+            let results = apply_nemotron(vec![
+                blank,
+                create_mock_response_chunk(NEMOTRON_DIGIT_CALL.to_string(), 0),
+                create_final_response_chunk(0),
+            ])
+            .await;
+
+            assert_eq!(reconstruct_content(&results), "", "{annotation}");
+            assert_eq!(digit_calls(&results), 1, "{annotation}");
+            assert_eq!(
+                serde_json::to_value(&results[0]).unwrap(),
+                serde_json::to_value(expected).unwrap(),
+                "{annotation}",
+            );
+        }
+    }
+
+    #[tokio::test]
+    async fn test_nemotron_held_metadata_after_call_does_not_finish_the_turn() {
+        for finish in [
+            FinishReason::Length,
+            FinishReason::ContentFilter,
+            FinishReason::Stop,
+        ] {
+            let mut blank = create_mock_response_chunk("\n".to_string(), 0);
+            blank.data.as_mut().unwrap().choices[0].delta.role = None;
+            blank.event = Some("message".to_string());
+            let results = apply_nemotron(vec![
+                create_mock_response_chunk(NEMOTRON_DIGIT_CALL.to_string(), 0),
+                blank,
+                create_mock_response_chunk("Done.".to_string(), 0),
+                with_finish_reason(create_final_response_chunk(0), finish),
+            ])
+            .await;
+
+            assert_eq!(reconstruct_content(&results), "\nDone.");
+            let expected_finish = if finish == FinishReason::Stop {
+                FinishReason::ToolCalls
+            } else {
+                finish
+            };
+            assert_eq!(finish_reasons(&results), [expected_finish]);
+            let metadata = results
+                .iter()
+                .find(|result| result.event.as_deref() == Some("message"))
+                .unwrap();
+            let choices = &metadata.data.as_ref().unwrap().choices;
+            assert_eq!(choices.len(), 1);
+            assert_eq!(choices[0].index, 0);
+            assert_eq!(choices[0].finish_reason, None);
+            assert_eq!(choices[0].delta.content, None);
+            let terminal_position = results
+                .iter()
+                .position(|result| {
+                    result.data.as_ref().is_some_and(|data| {
+                        data.choices
+                            .iter()
+                            .any(|choice| choice.finish_reason.is_some())
+                    })
+                })
+                .unwrap();
+            let prose_position = results
+                .iter()
+                .position(|result| {
+                    result.data.as_ref().is_some_and(|data| {
+                        data.choices
+                            .iter()
+                            .any(|choice| choice.delta.content.is_some())
+                    })
+                })
+                .unwrap();
+            assert!(terminal_position > prose_position);
+        }
+    }
+
+    #[tokio::test]
     async fn test_nemotron_dropped_whitespace_keeps_its_logprobs() {
         let token = |text: &str| dynamo_protocols::types::ChatCompletionTokenLogprob {
             token: text.to_string(),
