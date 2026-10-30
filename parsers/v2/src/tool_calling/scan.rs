@@ -524,7 +524,7 @@ fn envelope_resolve(
         let payload = body.trim_start().starts_with(['{', '[']);
         if legal && !payload {
             let verdict = match factory {
-                Some(factory) => factory.create().channel_body(body, flush),
+                Some(ref factory) => factory.clone().create().channel_body(body, flush),
                 None if body.trim().is_empty() => BodyScan::Wait,
                 None => BodyScan::Malformed {
                     discard: 0,
@@ -1243,13 +1243,15 @@ pub(crate) struct InvokeScan {
 }
 
 /// Immutable family recipe for a request-local invoke boundary.
-#[derive(Clone, Copy)]
+#[derive(Clone)]
 pub(crate) enum InvokeBoundaryFactory {
     #[cfg(test)]
     Stateless(InvokeScan),
     Custom(fn() -> Box<dyn InvokeBoundary>),
     /// Native XML boundaries with a separate guided-prefix grammar.
     NativeOnly(fn() -> Box<dyn InvokeBoundary>),
+    /// Grammars whose raw parameter boundaries depend on request tool schemas.
+    Configured(std::sync::Arc<dyn Fn() -> Box<dyn InvokeBoundary> + Send + Sync>),
 }
 
 #[derive(Clone, Copy)]
@@ -1262,6 +1264,9 @@ pub(crate) struct GuidedInvokePrefixContext {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum GuidedInvokePrefix {
     NoMatch,
+    /// A complete family header owns a native body, not a guided JSON prefix.
+    /// Routing may recover it only at an eligible request/payload boundary.
+    NativeBody,
     Pending,
     Match(usize),
     Strip(usize),
@@ -1278,6 +1283,7 @@ impl InvokeBoundaryFactory {
             #[cfg(test)]
             Self::Stateless(scan) => Box::new(StatelessInvokeBoundary { scan }),
             Self::Custom(create) | Self::NativeOnly(create) => create(),
+            Self::Configured(create) => create(),
         }
     }
 
@@ -2084,6 +2090,7 @@ impl<E: InvokeEmitter> WrappedBlockScanner<E> {
     pub(crate) fn new(spec: WrappedBlockSpec, emitter: E) -> Self {
         let invoke_boundary = spec
             .invoke_boundary_factory
+            .clone()
             .map(InvokeBoundaryFactory::create);
         Self {
             spec,
@@ -2236,7 +2243,7 @@ impl<E: InvokeEmitter> WrappedBlockScanner<E> {
     }
 
     pub(crate) fn invoke_boundary_factory(&self) -> Option<InvokeBoundaryFactory> {
-        self.spec.invoke_boundary_factory
+        self.spec.invoke_boundary_factory.clone()
     }
 
     /// The model-emitted id for a call at `tool_index`, delegated to the
@@ -2802,7 +2809,7 @@ impl<E: InvokeEmitter> WrappedBlockScanner<E> {
             // walked with the recipient's own boundary — the one `envelope_idle` would
             // install for the real call — so prose ownership and the call agree about
             // where every parameter value ends.
-            let factory = self.spec.invoke_boundary_factory;
+            let factory = self.spec.invoke_boundary_factory.clone();
             let policy = self.policy;
             let emitter = &self.emitter;
             let boundary_for = |recipient: &str| emitter.channel_boundary(recipient);
@@ -2812,7 +2819,15 @@ impl<E: InvokeEmitter> WrappedBlockScanner<E> {
                     markers.iter().copied(),
                     flush,
                     |text, at, flush| {
-                        envelope_tool_span(env, factory, policy, &boundary_for, text, at, flush)
+                        envelope_tool_span(
+                            env,
+                            factory.clone(),
+                            policy,
+                            &boundary_for,
+                            text,
+                            at,
+                            flush,
+                        )
                     },
                 )
             } else {
@@ -3341,7 +3356,7 @@ impl<E: InvokeEmitter> WrappedBlockScanner<E> {
                             flush,
                             &self.spec.invoke_start,
                             &self.spec.invoke_end,
-                            self.spec.invoke_boundary_factory,
+                            self.spec.invoke_boundary_factory.clone(),
                         )
                     },
                 );
